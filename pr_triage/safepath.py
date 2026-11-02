@@ -39,6 +39,21 @@ def resolve_config_path(path: str | Path, *, workspace: str | Path | None = None
     return resolve_under(path, workspace)
 
 
+def assert_realpath_under(path: str | Path, base: str | Path | None = None) -> str:
+    """Verify *path* resolves under *base*; return the real path string for I/O sinks."""
+    trusted = os.path.realpath(str(allowed_base(base)))
+    parts = Path(path).parts
+    if ".." in parts:
+        raise SafePathError(f"path {path!r} contains parent traversal")
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = Path(trusted) / candidate
+    resolved = os.path.realpath(str(candidate))
+    if resolved != trusted and not resolved.startswith(trusted + os.sep):
+        raise SafePathError(f"path {path!r} escapes allowed base {trusted}")
+    return resolved
+
+
 class SafePath:
     """Path confined to a validated directory; I/O re-checks containment."""
 

@@ -1,6 +1,7 @@
 """Build or update a KB snapshot from cached data/ or read-only GitHub pulls."""
 
 import json
+import os
 import shutil
 import tarfile
 from datetime import datetime, timezone
@@ -10,7 +11,12 @@ from triage.collect import clean_body, load_list
 from triage.components import primary_component
 from triage.github_api import list_open_pulls
 
-from pr_triage.safepath import SafePath, allowed_base, resolve_under
+from pr_triage.safepath import (
+    SafePath,
+    SafePathError,
+    allowed_base,
+    resolve_under,
+)
 
 from .indexes import build_indexes
 from .schema import KB_VERSION
@@ -163,8 +169,13 @@ def build_snapshot(
 def pack_snapshot(snapshot_dir: Path, archive: Path):
     root = allowed_base()
     snapshot_dir = resolve_under(snapshot_dir, root)
-    archive_path = SafePath(archive, root)
-    archive_path.path.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(archive_path.path, "w:gz") as tf:
+    trusted = os.path.realpath(str(root))
+    archive_resolved = os.path.realpath(str(archive))
+    if ".." in Path(archive).parts:
+        raise SafePathError(f"path {archive!r} contains parent traversal")
+    if archive_resolved != trusted and not archive_resolved.startswith(trusted + os.sep):
+        raise SafePathError(f"path {archive!r} escapes allowed base {trusted}")
+    Path(archive_resolved).parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive_resolved, "w:gz") as tf:
         tf.add(snapshot_dir, arcname=Path(snapshot_dir).name)
-    return archive_path.path
+    return Path(archive_resolved)
