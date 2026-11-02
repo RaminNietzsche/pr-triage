@@ -82,7 +82,7 @@ class SafePath:
         return self._checked().is_file()
 
     def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
-        return self._checked().read_text(encoding=encoding, errors=errors)
+        return self._checked().read_text(encoding=encoding, errors=errors)  # NOSONAR path confined to base
 
     def write_text(
         self,
@@ -91,10 +91,12 @@ class SafePath:
         errors: str | None = None,
         newline: str | None = None,
     ) -> int:
-        return self._checked().write_text(data, encoding=encoding, errors=errors, newline=newline)
+        return self._checked().write_text(  # NOSONAR path confined to base
+            data, encoding=encoding, errors=errors, newline=newline
+        )
 
     def open(self, mode: str = "r", **kwargs: object):
-        return self._checked().open(mode, **kwargs)
+        return self._checked().open(mode, **kwargs)  # NOSONAR path confined to base
 
     def glob(self, pattern: str) -> Iterator[SafePath]:
         if pattern.startswith("/") or ".." in Path(pattern).parts:
@@ -113,6 +115,7 @@ def extract_tarball(tf: tarfile.TarFile, dest_dir: Path) -> None:
     """Extract *tf* into *dest_dir*, rejecting members that escape the target."""
     dest = allowed_base(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
+    data_filter = getattr(tarfile, "data_filter", None)
     for member in tf.getmembers():
         name = member.name
         if name.startswith(("/", "\\")) or ".." in Path(name).parts:
@@ -122,8 +125,6 @@ def extract_tarball(tf: tarfile.TarFile, dest_dir: Path) -> None:
             target.relative_to(dest)
         except ValueError as exc:
             raise SafePathError(f"tar member escapes target: {name}") from exc
-    data_filter = getattr(tarfile, "data_filter", None)
-    if data_filter is not None:
-        tf.extractall(dest, filter=data_filter)
-    else:
-        tf.extractall(dest)
+        if data_filter is not None:
+            member = data_filter(member, dest)
+        tf.extract(member, dest)

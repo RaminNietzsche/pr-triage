@@ -71,7 +71,7 @@ def run_batch(
         return {"total_open": len(allprs), "list_only": True}
     prefix = path_prefix if path_prefix else f"src/{component}/" if component != "all" else ""
     prs_cache = SafePath(cfg.paths.prs_cache, root)
-    recs, allrec, skipped = collect(raw, clone, prs_cache, component, prefix or "src/rgw/")
+    recs, allrec, skipped = collect(raw, clone, prs_cache.path, component, prefix or "src/rgw/")
     recs = [r for r in recs if r["number"] not in skipped]
     if cfg.limits.max_prs_analyse:
         recs = sorted(recs, key=lambda r: r["updated_at"], reverse=True)[: cfg.limits.max_prs_analyse]

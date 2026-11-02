@@ -43,7 +43,7 @@ def main():
 
     out = SafePath(args.out, ROOT)
     manifest = build_snapshot(
-        out,
+        out.path,
         raw_dir=raw,
         enriched_records=enriched,
         limitations=LIMITATIONS,

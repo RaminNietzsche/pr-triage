@@ -67,7 +67,7 @@ def main():
 
     t0 = time.perf_counter()
     manifest = build_snapshot(
-        out_dir,
+        out_dir.path,
         raw_dir=raw,
         enriched_records=enriched,
         limitations=LIMITATIONS,
@@ -81,7 +81,7 @@ def main():
 
     archive = resolve_under("data/kb-snapshot-full.tar.gz", ROOT)
     t0 = time.perf_counter()
-    pack_snapshot(out_dir, archive)
+    pack_snapshot(out_dir.path, archive.path)
     pack_s = time.perf_counter() - t0
 
     stats = {
@@ -94,7 +94,7 @@ def main():
         "n_enriched": manifest["n_enriched"],
         "indexes": manifest["indexes"],
         "base_tips": tips,
-        "snapshot_dir_bytes": dir_size_bytes(out_dir),
+        "snapshot_dir_bytes": dir_size_bytes(out_dir.path),
         "tarball_bytes": archive.stat().st_size if archive.exists() else 0,
         "paths": {"dir": str(out_dir), "tarball": str(archive)},
     }

@@ -4,13 +4,15 @@ import re
 from pr_triage.context import get_config
 
 # A ticket is "primary" when the PR claims to fix/track it, not when it is cited as context.
-_FIXES_HASH_RE = re.compile(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:?\s*#(\d+)\b")
+_FIXES_HASH_RE = re.compile(
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\s*:?\s*#(\d+)\b"
+)
 _FIXES_GH_URL_RE = re.compile(
-    r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\b\s*:?\s*(?:<)?"
-    r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)"
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\b\s*:?\s*(?:<)?"
+    r"https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)"
 )
 _BARE_GH_ISSUE_LINE_RE = re.compile(
-    r"(?i)^\W*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)[\s,;>.()]*$"
+    r"(?i)^\W*https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)[\s,;>.()]*$"
 )
 
 _CONTEXT_TERMS = (

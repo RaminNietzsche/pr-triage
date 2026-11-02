@@ -248,7 +248,7 @@ def write_md(path, date, recs, findings, clusters_, method, meta):
             L.append(f"| {f['confidence']} | {' '.join(_link(n, by) for n in f['prs'])} | {by[f['prs'][0]]['base']} | "
                      f"{' / '.join(by[n]['title'][:60].replace('|', '/') for n in f['prs'])} | {f['reason'].replace('|', '/')} |")
     L += ["", "## Method limitations", *[f"- {x}" for x in meta["limitations"]]]
-    prec = SafePath(safe.path.parent / f"precision-{date}.md", allowed_base())
+    prec = SafePath(f"reports/precision-{date}.md", allowed_base())
     if prec.exists():
         L += ["", prec.read_text().rstrip()]
     safe.write_text("\n".join(L) + "\n")
