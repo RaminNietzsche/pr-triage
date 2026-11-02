@@ -59,6 +59,7 @@ class ThresholdsConfig:
     inactive_days: int = 365
     min_cherry_share: float = 0.25
     rename_similarity_percent: int = 50  # git diff -M / --find-renames threshold
+    basename_move_fallback: bool = True  # same-basename search on base when git finds no rename
 
 
 @dataclass
@@ -175,10 +176,12 @@ def load_config(path: str | Path | None) -> TriageConfig:
     )
     labels = LabelsConfig(**{k: data.get("labels", {}).get(k, v) for k, v in LabelsConfig().__dict__.items()})
     th = data.get("thresholds") or {}
+    bmf = th.get("basename_move_fallback", True)
     thresholds = ThresholdsConfig(
         inactive_days=int(th.get("inactive_days", 365)),
         min_cherry_share=float(th.get("min_cherry_share", 0.25)),
         rename_similarity_percent=int(th.get("rename_similarity_percent", 50)),
+        basename_move_fallback=bool(bmf) if bmf is not None else True,
     )
     lim = LimitsConfig(max_prs_analyse=limits.get("max_prs_analyse"))
     data_paths = DataPaths(

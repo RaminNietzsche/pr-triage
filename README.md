@@ -160,6 +160,7 @@ in `review/verdicts_2026-11-02.py` and `review/spotcheck_nonrgw_2026-11-02.py`.
 | `tracker.issue_id_regex` | Regex with one capture group for ticket id |
 | `thresholds.inactive_days` | Inactivity finding threshold |
 | `thresholds.rename_similarity_percent` | Git rename detection for files-gone (`git diff -M`, default 50) |
+| `thresholds.basename_move_fallback` | When git finds no rename, match missing paths by filename on the base tip (default true) |
 | `limits.max_prs_analyse` | Optional cap for smoke runs on huge backlogs |
 | `paths.raw_dir`, `github.clone_dir` | Isolated caches per profile |
 
