@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from pr_triage.config import TriageConfig
-from pr_triage.safepath import allowed_base, resolve_under
+from pr_triage.safepath import SafePath, allowed_base, resolve_under
 from triage.collect import collect
 from triage.dupes import clusters, find_pairs
 from triage.fixed import already_fixed, backport_sources
@@ -70,7 +70,7 @@ def run_batch(
     if list_only:
         return {"total_open": len(allprs), "list_only": True}
     prefix = path_prefix if path_prefix else f"src/{component}/" if component != "all" else ""
-    prs_cache = resolve_under(cfg.paths.prs_cache, root)
+    prs_cache = SafePath(cfg.paths.prs_cache, root)
     recs, allrec, skipped = collect(raw, clone, prs_cache, component, prefix or "src/rgw/")
     recs = [r for r in recs if r["number"] not in skipped]
     if cfg.limits.max_prs_analyse:
@@ -107,7 +107,7 @@ def run_batch(
         report_stem = f"{cfg.name}-{scope}"
     else:
         report_stem = scope
-    resolve_under(f"data/analysis-{report_stem}-{d}.json", root).write_text(
+    SafePath(f"data/analysis-{report_stem}-{d}.json", root).write_text(
         json.dumps(
             {"tickets": tk, "backports": bp, "xrefs": xr, "pairs": pairs, "clusters": cl, "staleness": st, "fixed": fx, "findings": findings},
             indent=1,

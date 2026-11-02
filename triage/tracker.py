@@ -10,14 +10,37 @@ _FIXES_GH_URL_RE = re.compile(
     r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)"
 )
 _BARE_GH_ISSUE_LINE_RE = re.compile(
-    r"(?i)^\W*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)[\s.,;>)\]]*$"
+    r"(?i)^\W*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)[\s,;>.()]*$"
 )
 
-CONTEXT_RE = re.compile(
-    r"(?i)\b(?:validates?(?:\s+the)?(?:\s+fix)?|see also|related(?:\s+to)?|"
-    r"context|history|discussed in|continuation of|depends on|follow(?:s|-up)?\s+(?:to|for)|"
-    r"partial fix for|alternative fix|also fixes|same (?:bug|issue) as)\b"
+_CONTEXT_TERMS = (
+    "validate",
+    "validates",
+    "validates the",
+    "validates the fix",
+    "see also",
+    "related to",
+    "related",
+    "context",
+    "history",
+    "discussed in",
+    "continuation of",
+    "depends on",
+    "follow-up to",
+    "follow-up for",
+    "follows to",
+    "follows for",
+    "partial fix for",
+    "alternative fix",
+    "also fixes",
+    "same bug as",
+    "same issue as",
 )
+_CONTEXT_RES = tuple(re.compile(rf"(?i)\b{re.escape(term)}\b") for term in _CONTEXT_TERMS)
+
+
+def _is_context_line(line: str) -> bool:
+    return any(rx.search(line) for rx in _CONTEXT_RES)
 
 
 def _issue_re():
@@ -60,7 +83,7 @@ def _line_primary(line: str):
     line = line.strip()
     if not line:
         return []
-    if CONTEXT_RE.search(line) and not re.search(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:", line):
+    if _is_context_line(line) and not re.search(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:", line):
         return []
     out = _primary_res().findall(line)
     out.extend(_bare_re().findall(line))

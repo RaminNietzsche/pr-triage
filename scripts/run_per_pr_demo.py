@@ -22,7 +22,7 @@ from pipeline.comment import render_comment  # noqa: E402
 from pipeline.filter import filter_findings  # noqa: E402
 from pipeline.query import query_pr  # noqa: E402
 from triage import dupes  # noqa: E402
-from pr_triage.safepath import resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from triage.github_api import list_open_pulls  # noqa: E402
 
 
@@ -160,7 +160,7 @@ def main():
 
     build_stats = {}
     if args.build_stats:
-        stats_path = resolve_under(args.build_stats, ROOT)
+        stats_path = SafePath(args.build_stats, ROOT)
         if stats_path.is_file():
             build_stats = json.loads(stats_path.read_text())
 

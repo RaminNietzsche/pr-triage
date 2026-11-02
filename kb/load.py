@@ -4,11 +4,11 @@ import json
 import tarfile
 from pathlib import Path
 
-from pr_triage.safepath import allowed_base, extract_tarball, resolve_under
+from pr_triage.safepath import SafePath, allowed_base, extract_tarball, resolve_under
 
 
 def _read_json(path: Path):
-    return json.loads(path.read_text())
+    return json.loads(SafePath(path, allowed_base()).read_text())
 
 
 def load_snapshot(path: Path):
@@ -20,11 +20,12 @@ def load_snapshot(path: Path):
 
 
 def _load_dir(root: Path):
+    base = allowed_base()
     manifest = _read_json(root / "manifest.json")
     records = []
     prs = root / "prs.jsonl"
     if prs.exists():
-        for line in prs.read_text().splitlines():
+        for line in SafePath(prs, base).read_text().splitlines():
             if line.strip():
                 records.append(json.loads(line))
     elif (root / "prs.json").exists():

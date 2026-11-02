@@ -20,7 +20,7 @@ from pipeline.agreement import (  # noqa: E402
     load_batch_hp_rows,
 )
 from pipeline.drift import load_batch_snapshot  # noqa: E402
-from pr_triage.safepath import resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from triage.collect import load_list  # noqa: E402
 
 
@@ -46,7 +46,7 @@ def main():
 
     out_dir = resolve_under(args.out_dir, ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
-    sample = json.loads(resolve_under(args.sample, ROOT).read_text())
+    sample = json.loads(SafePath(args.sample, ROOT).read_text())
     prs = sample["prs"]
 
     t_load = time.perf_counter()

@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pr_triage.safepath import allowed_base, resolve_under
+from pr_triage.safepath import SafePath, allowed_base, resolve_under
 
 
 def _link(n, by):
@@ -194,9 +194,9 @@ def component_table(recs, findings):
 
 
 def write_csv(path, findings, recs):
-    path = resolve_under(path, allowed_base())
+    safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
-    with open(path, "w", newline="") as fh:
+    with safe.open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["category", "confidence", "component", "prs", "urls", "titles", "base", "reason"])
         for f in findings:
@@ -206,7 +206,7 @@ def write_csv(path, findings, recs):
 
 
 def write_md(path, date, recs, findings, clusters_, method, meta):
-    path = resolve_under(path, allowed_base())
+    safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
     cnt = Counter((f["category"], f["confidence"]) for f in findings)
     cats = sorted({c for c, _ in cnt})
@@ -248,7 +248,7 @@ def write_md(path, date, recs, findings, clusters_, method, meta):
             L.append(f"| {f['confidence']} | {' '.join(_link(n, by) for n in f['prs'])} | {by[f['prs'][0]]['base']} | "
                      f"{' / '.join(by[n]['title'][:60].replace('|', '/') for n in f['prs'])} | {f['reason'].replace('|', '/')} |")
     L += ["", "## Method limitations", *[f"- {x}" for x in meta["limitations"]]]
-    prec = resolve_under(path.parent / f"precision-{date}.md", allowed_base())
+    prec = SafePath(safe.path.parent / f"precision-{date}.md", allowed_base())
     if prec.exists():
         L += ["", prec.read_text().rstrip()]
-    path.write_text("\n".join(L) + "\n")
+    safe.write_text("\n".join(L) + "\n")

@@ -16,7 +16,7 @@ from kb.indexes import build_base_branch_patch_index  # noqa: E402
 from triage.gitdata import Git  # noqa: E402
 from triage.github_api import list_open_pulls  # noqa: E402
 
-from pr_triage.safepath import resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from run import LIMITATIONS  # noqa: E402
 
 
@@ -60,7 +60,7 @@ def main():
     n_ok = sum(1 for r in enriched if r.get("enriched"))
     print(f"Enriched {n_ok}/{len(enriched)} PRs in {enrich_s:.1f}s")
 
-    out_dir = resolve_under(args.out, ROOT)
+    out_dir = SafePath(args.out, ROOT)
     git = Git(str(clone))
     bases = sorted({r["base"] for r in enriched})
     tips, base_patch = build_base_branch_patch_index(git, bases)

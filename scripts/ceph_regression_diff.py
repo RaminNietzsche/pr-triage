@@ -14,7 +14,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from pr_triage.safepath import resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 
 
 def normalize_reason(reason: str) -> str:
@@ -51,7 +51,7 @@ def main():
     args = ap.parse_args()
     baseline = resolve_under(args.baseline, ROOT)
     candidate = resolve_under(args.candidate, ROOT)
-    out_path = resolve_under(args.out, ROOT) if args.out else None
+    out_path = SafePath(args.out, ROOT) if args.out else None
 
     if not candidate.is_file():
         print(json.dumps({"error": f"missing candidate {candidate}"}, indent=2))

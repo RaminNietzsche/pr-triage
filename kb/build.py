@@ -10,7 +10,7 @@ from triage.collect import clean_body, load_list
 from triage.components import primary_component
 from triage.github_api import list_open_pulls
 
-from pr_triage.safepath import allowed_base, resolve_under
+from pr_triage.safepath import SafePath, allowed_base, resolve_under
 
 from .indexes import build_indexes
 from .schema import KB_VERSION
@@ -94,9 +94,9 @@ def build_snapshot(
     """Write snapshot under out_dir. Merges API list with optional enriched git analysis."""
     root = allowed_base()
     raw_dir = resolve_under(raw_dir or "data/raw", root)
-    prs_cache = resolve_under(prs_cache or "data/prs.json", root)
-    out_dir = resolve_under(out_dir, root)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    prs_cache = SafePath(prs_cache or "data/prs.json", root)
+    snap = SafePath(out_dir, root)
+    snap.mkdir(parents=True, exist_ok=True)
 
     prs = load_list(raw_dir) if list(raw_dir.glob("pulls_open_p*.json")) else list_open_pulls(repo, raw_dir)
     enriched_by_n = {r["number"]: r for r in (enriched_records or [])}
@@ -140,23 +140,23 @@ def build_snapshot(
     if base_tips:
         manifest["base_tips"] = base_tips
 
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    with open(out_dir / "prs.jsonl", "w") as fh:
+    (snap / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    with (snap / "prs.jsonl").open("w") as fh:
         for r in sorted(records, key=lambda x: x["number"]):
             fh.write(json.dumps(r, separators=(",", ":")) + "\n")
-    idx_dir = out_dir / "indexes"
+    idx_dir = snap / "indexes"
     idx_dir.mkdir(exist_ok=True)
     for name, data in indexes.items():
         (idx_dir / f"{name}.json").write_text(json.dumps(data))
-    meta = out_dir / "meta"
+    meta = snap / "meta"
     meta.mkdir(exist_ok=True)
     (meta / "limitations.json").write_text(json.dumps(limitations or [], indent=2))
     tracker_src = resolve_under("data/tracker", root)
     if tracker_src.is_dir():
-        dst = out_dir / "tracker"
+        dst = snap / "tracker"
         if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(tracker_src, dst)
+            shutil.rmtree(dst.path)
+        shutil.copytree(tracker_src, dst.path)
     return manifest
 
 
