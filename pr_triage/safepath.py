@@ -17,21 +17,32 @@ def allowed_base(base: str | Path | None = None) -> Path:
     return Path(os.path.realpath(base or os.getcwd()))
 
 
-def resolve_under(path: str | Path, base: str | Path | None = None) -> Path:
-    """Resolve *path* under *base*; reject traversal outside *base*."""
-    root = allowed_base(base)
-    p = Path(path)
-    if ".." in p.parts:
+def canonical_path_str(path: str | Path, base: str | Path | None = None) -> str:
+    """Return a path string rebuilt from a trusted base (path-traversal sanitizer)."""
+    trusted = os.path.realpath(str(allowed_base(base)))
+    parts = Path(path).parts
+    if ".." in parts:
         raise SafePathError(f"path {path!r} contains parent traversal")
-    if p.is_absolute():
-        resolved = Path(os.path.realpath(p))
+    raw = str(path)
+    if os.path.isabs(raw):
+        resolved = os.path.realpath(raw)
     else:
-        resolved = Path(os.path.realpath(root / p))
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise SafePathError(f"path {path!r} escapes allowed base {root}") from exc
-    return resolved
+        resolved = os.path.realpath(os.path.join(trusted, *parts))
+    if resolved != trusted and not resolved.startswith(trusted + os.sep):
+        raise SafePathError(f"path {path!r} escapes allowed base {trusted}")
+    rel = os.path.relpath(resolved, trusted)
+    if rel == os.curdir:
+        canonical = trusted
+    else:
+        canonical = os.path.realpath(os.path.join(trusted, rel))
+    if canonical != trusted and not canonical.startswith(trusted + os.sep):
+        raise SafePathError(f"path {path!r} escapes allowed base {trusted}")
+    return canonical
+
+
+def resolve_under(path: str | Path, base: str | Path | None = None) -> Path:
+    """Resolve *path* under *base*; return a canonical path under the trusted base."""
+    return Path(canonical_path_str(path, base))
 
 
 def resolve_config_path(path: str | Path, *, workspace: str | Path | None = None) -> Path:
@@ -40,18 +51,8 @@ def resolve_config_path(path: str | Path, *, workspace: str | Path | None = None
 
 
 def assert_realpath_under(path: str | Path, base: str | Path | None = None) -> str:
-    """Verify *path* resolves under *base*; return the real path string for I/O sinks."""
-    trusted = os.path.realpath(str(allowed_base(base)))
-    parts = Path(path).parts
-    if ".." in parts:
-        raise SafePathError(f"path {path!r} contains parent traversal")
-    candidate = Path(path)
-    if not candidate.is_absolute():
-        candidate = Path(trusted) / candidate
-    resolved = os.path.realpath(str(candidate))
-    if resolved != trusted and not resolved.startswith(trusted + os.sep):
-        raise SafePathError(f"path {path!r} escapes allowed base {trusted}")
-    return resolved
+    """Alias for :func:`canonical_path_str` (explicit real path for I/O sinks)."""
+    return canonical_path_str(path, base)
 
 
 class SafePath:
@@ -60,20 +61,25 @@ class SafePath:
     __slots__ = ("_base", "_path")
 
     def __init__(self, path: str | Path | SafePath, base: str | Path | None = None):
-        if isinstance(path, SafePath):
-            self._base = allowed_base(base) if base is not None else path._base
-            self._path = resolve_under(path._path, self._base)
-            return
         self._base = allowed_base(base)
-        self._path = resolve_under(path, self._base)
+        if isinstance(path, SafePath):
+            if base is not None:
+                self._base = allowed_base(base)
+            raw = path._path
+        else:
+            raw = path
+        self._path = Path(canonical_path_str(raw, self._base))
 
     def __fspath__(self) -> str:
-        return str(self._checked())
+        return self._checked_str()
+
+    def _checked_str(self) -> str:
+        canonical = canonical_path_str(self._path, self._base)
+        self._path = Path(canonical)
+        return canonical
 
     def _checked(self) -> Path:
-        resolved = resolve_under(self._path, self._base)
-        self._path = resolved
-        return resolved
+        return Path(self._checked_str())
 
     @property
     def path(self) -> Path:
@@ -82,7 +88,8 @@ class SafePath:
     def __truediv__(self, name: str) -> SafePath:
         if not isinstance(name, str) or name in (".", "..") or "/" in name or "\\" in name:
             raise SafePathError(f"invalid path segment: {name!r}")
-        return SafePath(self._path / name, self._base)
+        combined = Path(self._checked_str()) / name
+        return SafePath(combined, self._base)
 
     def mkdir(self, *, parents: bool = False, exist_ok: bool = False) -> None:
         self._checked().mkdir(parents=parents, exist_ok=exist_ok)
@@ -97,7 +104,7 @@ class SafePath:
         return self._checked().is_file()
 
     def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
-        return self._checked().read_text(encoding=encoding, errors=errors)  # NOSONAR path confined to base
+        return self._checked().read_text(encoding=encoding, errors=errors)
 
     def write_text(
         self,
@@ -106,12 +113,12 @@ class SafePath:
         errors: str | None = None,
         newline: str | None = None,
     ) -> int:
-        return self._checked().write_text(  # NOSONAR path confined to base
+        return self._checked().write_text(
             data, encoding=encoding, errors=errors, newline=newline
         )
 
     def open(self, mode: str = "r", **kwargs: object):
-        return self._checked().open(mode, **kwargs)  # NOSONAR path confined to base
+        return self._checked().open(mode, **kwargs)
 
     def glob(self, pattern: str) -> Iterator[SafePath]:
         if pattern.startswith("/") or ".." in Path(pattern).parts:
@@ -123,12 +130,12 @@ class SafePath:
         return self._checked().stat()
 
     def __str__(self) -> str:
-        return str(self._path)
+        return self._checked_str()
 
 
 def extract_tarball(tf: tarfile.TarFile, dest_dir: Path) -> None:
     """Extract *tf* into *dest_dir*, rejecting members that escape the target."""
-    dest = allowed_base(dest_dir)
+    dest = Path(os.path.realpath(str(dest_dir)))
     dest.mkdir(parents=True, exist_ok=True)
     data_filter = getattr(tarfile, "data_filter", None)
     for member in tf.getmembers():
