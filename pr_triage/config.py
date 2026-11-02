@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from pr_triage.safepath import resolve_config_path
+from pr_triage.safepath import SafePath, allowed_base, resolve_config_path
 
 
 @dataclass
@@ -140,7 +140,7 @@ def load_config(path: str | Path | None) -> TriageConfig:
     path = resolve_config_path(path or "configs/ceph.yml")
     if not path.is_file():
         raise FileNotFoundError(path)
-    data = yaml.safe_load(path.read_text()) or {}
+    data = yaml.safe_load(SafePath(path, allowed_base()).read_text()) or {}
     gh = data.get("github") or {}
     tr = data.get("tracker") or {}
     comp = data.get("components") or {}

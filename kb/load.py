@@ -50,9 +50,10 @@ def _load_dir(root: Path):
 def _load_tarball(archive: Path):
     import tempfile
 
+    archive_path = SafePath(archive, allowed_base())
     with tempfile.TemporaryDirectory(prefix="kb-snap-") as td:
         dest = Path(td)
-        with tarfile.open(archive, "r:gz") as tf:
+        with tarfile.open(archive_path.path, "r:gz") as tf:
             extract_tarball(tf, dest)
         root = dest
         subs = [p for p in root.iterdir() if p.is_dir()]

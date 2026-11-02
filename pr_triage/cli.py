@@ -43,9 +43,6 @@ def main(argv=None):
     cfg = activate_config(args.config)
 
     if args.cmd == "batch":
-        if args.clone if hasattr(args, "clone") else False:
-            pass
-        clone_default = cfg.github.clone_dir
         result = run_batch(
             cfg,
             component=args.component,

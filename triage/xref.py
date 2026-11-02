@@ -36,7 +36,12 @@ def cross_refs(recs, open_numbers):
             pre = _sentence_before(r["body"], m.start())
             if NEG.search(pre):
                 continue
-            conf = "high" if STRONG.search(pre) else ("medium" if WEAK.search(pre) else None)
+            if STRONG.search(pre):
+                conf = "high"
+            elif WEAK.search(pre):
+                conf = "medium"
+            else:
+                conf = None
             if conf and TENTATIVE.search(pre):
                 conf = "low"  # stated intent, not a fact
             if conf:

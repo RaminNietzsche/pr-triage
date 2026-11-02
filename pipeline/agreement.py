@@ -25,10 +25,11 @@ def finding_keys(f: dict, focus_pr: int) -> set[tuple]:
 
 def load_batch_hp_rows(csv_path):
     import csv
-    from pathlib import Path
+
+    from pr_triage.safepath import SafePath, allowed_base
 
     findings = []
-    with open(Path(csv_path), newline="") as fh:
+    with SafePath(csv_path, allowed_base()).open(newline="") as fh:
         for row in csv.DictReader(fh):
             prs = [int(x.strip().lstrip("#")) for x in row["prs"].split() if x.strip()]
             findings.append(

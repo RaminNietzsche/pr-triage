@@ -163,8 +163,8 @@ def build_snapshot(
 def pack_snapshot(snapshot_dir: Path, archive: Path):
     root = allowed_base()
     snapshot_dir = resolve_under(snapshot_dir, root)
-    archive = resolve_under(archive, root)
-    archive.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(archive, "w:gz") as tf:
-        tf.add(snapshot_dir, arcname=snapshot_dir.name)
-    return archive
+    archive_path = SafePath(archive, root)
+    archive_path.path.parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive_path.path, "w:gz") as tf:
+        tf.add(snapshot_dir, arcname=Path(snapshot_dir).name)
+    return archive_path.path

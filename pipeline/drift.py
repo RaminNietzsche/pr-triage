@@ -14,8 +14,10 @@ def _norm_sha(sha: str | None) -> str:
 def load_batch_snapshot(path: Path | None = None) -> dict:
     import json
 
-    path = path or Path("reports/batch-snapshot-2026-11-02.json")
-    return json.loads(path.read_text())
+    from pr_triage.safepath import SafePath, allowed_base
+
+    snap = SafePath(path or "reports/batch-snapshot-2026-11-02.json", allowed_base())
+    return json.loads(snap.read_text())
 
 
 def base_tip_drift(pr_base: str, kb_manifest: dict, batch_meta: dict) -> bool:

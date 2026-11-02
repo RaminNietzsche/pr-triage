@@ -38,7 +38,7 @@ def category_counts(rows: list[dict]) -> dict[str, dict[str, int]]:
     return {c: dict(cnt) for c, cnt in out.items()}
 
 
-def load_csv(path: Path) -> list[dict]:
+def load_csv(path: SafePath) -> list[dict]:
     with path.open(newline="") as fh:
         return list(csv.DictReader(fh))
 
@@ -49,8 +49,8 @@ def main():
     ap.add_argument("candidate", type=Path, default=Path("reports/all-latest.csv"), nargs="?")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
-    baseline = resolve_under(args.baseline, ROOT)
-    candidate = resolve_under(args.candidate, ROOT)
+    baseline = SafePath(args.baseline, ROOT)
+    candidate = SafePath(args.candidate, ROOT)
     out_path = SafePath(args.out, ROOT) if args.out else None
 
     if not candidate.is_file():
@@ -79,7 +79,7 @@ def main():
     # Heuristic: PR-set/category-only changes often drift; category renames = code
     drift_hints = []
     for k in list(only_base | only_cand)[:500]:
-        cat, prs, _ = k
+        _cat, prs, _ = k
         other_side = only_cand if k in only_base else only_base
         same_prs = [x for x in other_side if x[1] == prs]
         if same_prs:

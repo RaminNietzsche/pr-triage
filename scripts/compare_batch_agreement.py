@@ -17,7 +17,7 @@ from pipeline.agreement import (  # noqa: E402
     load_batch_hp_rows,
 )
 from pipeline.drift import load_batch_snapshot  # noqa: E402
-from pr_triage.safepath import resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from triage.collect import load_list  # noqa: E402
 
 
@@ -56,8 +56,8 @@ def main():
         for n in prs
     ]
     agg = aggregate_totals(rows)
-    out = resolve_under(args.out, ROOT)
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = SafePath(args.out, ROOT)
+    out.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(
             {"aggregate": agg, "by_category": aggregate_by_category(rows), "per_pr": rows},

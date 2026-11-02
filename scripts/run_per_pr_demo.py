@@ -67,7 +67,7 @@ def main():
     )
     ap.add_argument("--build-stats", help="build-stats.json from full KB build")
     args = ap.parse_args()
-    out = resolve_under(args.out, ROOT)
+    out = SafePath(args.out, ROOT)
     out.mkdir(parents=True, exist_ok=True)
 
     raw = resolve_under("data/raw", ROOT)
@@ -206,7 +206,7 @@ def main():
         "findings_total",
         "findings_shown",
     ]
-    with open(out / "latency.csv", "w", newline="") as fh:
+    with (out / "latency.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         w.writerows(rows)

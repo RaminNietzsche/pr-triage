@@ -35,7 +35,8 @@ def skipped_out(out, allrec, skipped):
 
 def collect(raw_dir: Path, repo_dir: str, out: Path, label="rgw", path_prefix="src/rgw/"):
     git = Git(repo_dir)
-    prs, records, skipped = load_list(raw_dir), [], []
+    prs = load_list(raw_dir)
+    skipped: list[int] = []
     cache = json.loads(out.read_text()) if out.exists() else {}
     cache = {r["number"]: r for r in cache.get("all", [])} if isinstance(cache, dict) else {}
     allrec = []

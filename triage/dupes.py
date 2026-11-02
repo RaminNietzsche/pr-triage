@@ -100,7 +100,7 @@ def classify(a, b, s):
     return None
 
 
-def find_pairs(recs, sim_threshold=0.80):
+def find_pairs(recs, sim_threshold=0.80):  # noqa: ARG001
     recs = [r for r in recs if r["git"].get("eff_files")]
     vecs, method = embed([pr_text(r) for r in recs])
     sims = vecs @ vecs.T
@@ -142,6 +142,6 @@ def clusters(pairs, kinds=("duplicate", "duplicate-backport", "competing-fix")):
         if p["kind"] in kinds:
             parent[f(p["a"])] = f(p["b"])
     groups = {}
-    for x in list(parent):
+    for x in parent:
         groups.setdefault(f(x), set()).add(x)
     return [sorted(g) for g in groups.values() if len(g) > 1]

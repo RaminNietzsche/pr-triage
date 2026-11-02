@@ -58,5 +58,5 @@ class GitHubIssuesTracker:
         f.write_text(json.dumps(rec))
         return rec
 
-    def duplicate_of(self, tid: str) -> list:
+    def duplicate_of(self, _tid: str) -> list:
         return []
