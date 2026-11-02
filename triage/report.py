@@ -6,6 +6,25 @@ from urllib.parse import urlparse
 
 from pr_triage.safepath import SafePath, allowed_base, resolve_under
 
+from .staleness import MOVE_NOTE_DISPLAY_CAP
+
+
+def _move_note_lines(stale_row, *, list_cap=MOVE_NOTE_DISPLAY_CAP):
+    lines = []
+    for old, new in (stale_row.get("files_moved_on_base") or {}).items():
+        lines.append(f"{old} -> {new}")
+    for old, cands in (stale_row.get("files_probably_moved_on_base") or {}).items():
+        shown = cands[:list_cap]
+        tail = f" (+{len(cands) - list_cap} more)" if len(cands) > list_cap else ""
+        lines.append(
+            f"{old} probably moved (same filename found at {', '.join(shown)}{tail})"
+        )
+    return lines
+
+
+def _has_move_signal(stale_row) -> bool:
+    return bool(stale_row.get("files_moved_on_base") or stale_row.get("files_probably_moved_on_base"))
+
 
 def _link(n, by):
     r = by[n]
@@ -128,12 +147,10 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
                   "score": len(f["commits_already_in_base"]) / max(1, f["commits_total"])})
     for s in stale:
         rec_s = by[s["number"]]
-        moved = s.get("files_moved_on_base") or s.get("gone_renamed_to") or {}
+        move_lines = _move_note_lines(s)
         moved_note = ""
-        if moved:
-            moved_note = "; files moved on base: " + ", ".join(
-                f"{old} -> {new}" for old, new in list(moved.items())[:3]
-            )
+        if move_lines:
+            moved_note = "; files moved on base: " + "; ".join(move_lines[:MOVE_NOTE_DISPLAY_CAP])
         if s["conflicts"]:
             prefix = "head fork deleted; " if rec_s.get("head_fork_deleted") else ""
             F.append({"category": "merge-conflict", "prs": [s["number"]], "confidence": "high",
@@ -146,15 +163,18 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
                       "reason": f"has needs-rebase label but git merge-tree merges it cleanly into {by[s['number']]['base']} tip"
                                 " (GitHub's own mergeable flag may still disagree; verify before acting)",
                       "score": 0})
-        if moved and not s["conflicts"]:
+        if _has_move_signal(s) and not s["conflicts"]:
+            n_moves = len(s.get("files_moved_on_base") or {}) + len(
+                s.get("files_probably_moved_on_base") or {}
+            )
             F.append(
                 {
                     "category": "files-moved-on-base",
                     "prs": [s["number"]],
                     "confidence": "medium",
-                    "reason": f"{len(moved)}/{s['n_files']} touched paths moved on {rec_s['base']}: "
-                    + ", ".join(f"{old} moved to {new}" for old, new in list(moved.items())[:3]),
-                    "score": len(moved) / max(1, s["n_files"]),
+                    "reason": f"{n_moves}/{s['n_files']} touched paths moved on {rec_s['base']}: "
+                    + "; ".join(move_lines[:MOVE_NOTE_DISPLAY_CAP]),
+                    "score": n_moves / max(1, s["n_files"]),
                 }
             )
         if s["files_gone_from_base"]:

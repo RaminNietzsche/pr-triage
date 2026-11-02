@@ -116,7 +116,8 @@ All PR-to-PR signals are computed on each PR's **effective change**: what mergin
 it into today's base tip would change. Stale branches that still carry merged
 commits therefore do not produce false overlap. Text similarity uses the local
 `sentence-transformers/all-MiniLM-L6-v2` model on CPU (title, cleaned description,
-commit subjects, file list and added lines), with a TF-IDF fallback. No hosted AI
+commit subjects, file list and added lines), with a TF-IDF fallback when
+sentence-transformers is not installed (a warning is logged). No hosted AI
 API is used and no PR content leaves the machine.
 
 Each PR gets one primary **component** for the per-component breakdown: the
@@ -159,6 +160,10 @@ in `review/verdicts_2026-11-02.py` and `review/spotcheck_nonrgw_2026-11-02.py`.
 | `tracker.plugin` | `redmine`, `github_issues`, `jira`, or `none` |
 | `tracker.issue_id_regex` | Regex with one capture group for ticket id |
 | `thresholds.inactive_days` | Inactivity finding threshold |
+| `thresholds.rename_similarity_percent` | Per-commit git rename detection (`git show -M`, default 50) |
+| `thresholds.rename_min_blob_bytes` | Ignore rename pairs involving symlinks or blobs smaller than this (default 64) |
+| `thresholds.basename_move_fallback` | Match missing paths to 1-3 same-basename files added on base since merge-base (default true) |
+| `thresholds.basename_move_max_candidates` | Max basename matches for probably-moved (default 3) |
 | `limits.max_prs_analyse` | Optional cap for smoke runs on huge backlogs |
 | `paths.raw_dir`, `github.clone_dir` | Isolated caches per profile |
 
