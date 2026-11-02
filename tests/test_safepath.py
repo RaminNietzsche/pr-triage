@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from pr_triage.safepath import SafePathError, allowed_base, extract_tarball, resolve_config_path, resolve_under
+from pr_triage.safepath import (
+    SafePathError,
+    allowed_base,
+    assert_realpath_under,
+    extract_tarball,
+    resolve_config_path,
+    resolve_under,
+)
 
 
 def test_resolve_under_accepts_relative(tmp_path, monkeypatch):
@@ -49,6 +56,19 @@ def test_extract_tarball_rejects_dotdot(tmp_path):
     with tarfile.open(archive, "r:gz") as tf:
         with pytest.raises(SafePathError):
             extract_tarball(tf, dest)
+
+
+def test_assert_realpath_under_rejects_escape(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "secret.out").write_text("x")
+    with pytest.raises(SafePathError):
+        assert_realpath_under("../../secret.out")
+
+
+def test_assert_realpath_under_accepts_relative(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    got = assert_realpath_under("data/out.tar.gz")
+    assert got == str((tmp_path / "data" / "out.tar.gz").resolve())
 
 
 def test_extract_tarball_accepts_normal_member(tmp_path):

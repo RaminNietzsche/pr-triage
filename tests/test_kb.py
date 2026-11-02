@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
-from kb.build import build_snapshot
+import pytest
+
+from kb.build import build_snapshot, pack_snapshot
+from pr_triage.safepath import SafePathError
 from kb.indexes import build_indexes, candidates_for
 from kb.load import load_snapshot
 from pipeline.query import query_pr
@@ -39,3 +42,22 @@ def test_build_and_query_minimal_kb(tmp_path, minimal_pr, monkeypatch):
     cats = [f["category"] for f in findings]
     assert "duplicate" in cats
     assert meta["latency_s"] >= 0
+
+
+def test_pack_snapshot_rejects_archive_traversal(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    snap = Path("kb")
+    snap.mkdir()
+    (snap / "manifest.json").write_text("{}")
+    with pytest.raises(SafePathError):
+        pack_snapshot(snap, "../../escape.tar.gz")
+
+
+def test_pack_snapshot_writes_under_workspace(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    snap = Path("kb")
+    snap.mkdir()
+    (snap / "manifest.json").write_text("{}")
+    out = pack_snapshot(snap, "data/snap.tar.gz")
+    assert out.is_file()
+    assert out.name == "snap.tar.gz"
