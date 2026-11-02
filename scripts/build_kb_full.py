@@ -16,6 +16,7 @@ from kb.indexes import build_base_branch_patch_index  # noqa: E402
 from triage.gitdata import Git  # noqa: E402
 from triage.github_api import list_open_pulls  # noqa: E402
 
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from run import LIMITATIONS  # noqa: E402
 
 
@@ -49,7 +50,7 @@ def main():
         prs = load_list(raw)
     print(f"Open PRs in cache: {len(prs)}")
 
-    clone = ROOT / args.clone
+    clone = resolve_under(args.clone, ROOT)
     if not clone.is_dir():
         sys.exit(f"Missing clone at {clone}; run scripts/setup_clone.sh first")
 
@@ -59,14 +60,14 @@ def main():
     n_ok = sum(1 for r in enriched if r.get("enriched"))
     print(f"Enriched {n_ok}/{len(enriched)} PRs in {enrich_s:.1f}s")
 
-    out_dir = ROOT / args.out
+    out_dir = SafePath(args.out, ROOT)
     git = Git(str(clone))
     bases = sorted({r["base"] for r in enriched})
     tips, base_patch = build_base_branch_patch_index(git, bases)
 
     t0 = time.perf_counter()
     manifest = build_snapshot(
-        out_dir,
+        out_dir.path,
         raw_dir=raw,
         enriched_records=enriched,
         limitations=LIMITATIONS,
@@ -78,9 +79,9 @@ def main():
     (idx_dir / "base_patch_id.json").write_text(json.dumps(base_patch))
     build_s = time.perf_counter() - t0
 
-    archive = ROOT / "data" / "kb-snapshot-full.tar.gz"
+    archive = resolve_under("data/kb-snapshot-full.tar.gz", ROOT)
     t0 = time.perf_counter()
-    pack_snapshot(out_dir, archive)
+    pack_snapshot(out_dir.path, archive.path)
     pack_s = time.perf_counter() - t0
 
     stats = {
@@ -93,7 +94,7 @@ def main():
         "n_enriched": manifest["n_enriched"],
         "indexes": manifest["indexes"],
         "base_tips": tips,
-        "snapshot_dir_bytes": dir_size_bytes(out_dir),
+        "snapshot_dir_bytes": dir_size_bytes(out_dir.path),
         "tarball_bytes": archive.stat().st_size if archive.exists() else 0,
         "paths": {"dir": str(out_dir), "tarball": str(archive)},
     }

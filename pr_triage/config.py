@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from pr_triage.safepath import resolve_config_path
+
 
 @dataclass
 class PathRule:
@@ -112,13 +114,16 @@ class TriageConfig:
     def tracker_grep_fragment(self) -> str:
         """Pattern fragment for git log --grep (tracker URL in commits)."""
         # Derive host/path from issue_id_regex when it looks like a URL tracker
-        import re
-
-        m = re.search(r"([a-z0-9.-]+)/issues/", self.tracker.issue_id_regex, re.I)
-        if m:
-            host = m.group(1).replace("\\.", ".")
-            return f"{host}/issues/"
-        return "issues/"
+        pat = self.tracker.issue_id_regex
+        marker = "/issues/"
+        pos = pat.lower().find(marker)
+        if pos == -1:
+            return "issues/"
+        host_part = pat[:pos].replace(r"\.", ".")
+        while host_part and host_part[-1] in ".+*?":
+            host_part = host_part[:-1]
+        host_part = host_part.rstrip("/\\")
+        return f"{host_part}{marker}" if host_part else "issues/"
 
 
 def _path_rules(raw: list[Any]) -> list[PathRule]:
@@ -132,7 +137,7 @@ def _path_rules(raw: list[Any]) -> list[PathRule]:
 
 
 def load_config(path: str | Path | None) -> TriageConfig:
-    path = Path(path or "configs/ceph.yml")
+    path = resolve_config_path(path or "configs/ceph.yml")
     if not path.is_file():
         raise FileNotFoundError(path)
     data = yaml.safe_load(path.read_text()) or {}

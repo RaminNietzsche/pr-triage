@@ -1,8 +1,10 @@
-from pathlib import Path
 """Markdown + CSV report writer."""
 import csv
 from collections import Counter
+from pathlib import Path
 from urllib.parse import urlparse
+
+from pr_triage.safepath import SafePath, allowed_base, resolve_under
 
 
 def _link(n, by):
@@ -192,8 +194,9 @@ def component_table(recs, findings):
 
 
 def write_csv(path, findings, recs):
+    safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
-    with open(path, "w", newline="") as fh:
+    with safe.open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["category", "confidence", "component", "prs", "urls", "titles", "base", "reason"])
         for f in findings:
@@ -203,6 +206,7 @@ def write_csv(path, findings, recs):
 
 
 def write_md(path, date, recs, findings, clusters_, method, meta):
+    safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
     cnt = Counter((f["category"], f["confidence"]) for f in findings)
     cats = sorted({c for c, _ in cnt})
@@ -244,7 +248,7 @@ def write_md(path, date, recs, findings, clusters_, method, meta):
             L.append(f"| {f['confidence']} | {' '.join(_link(n, by) for n in f['prs'])} | {by[f['prs'][0]]['base']} | "
                      f"{' / '.join(by[n]['title'][:60].replace('|', '/') for n in f['prs'])} | {f['reason'].replace('|', '/')} |")
     L += ["", "## Method limitations", *[f"- {x}" for x in meta["limitations"]]]
-    prec = Path(path).parent / f"precision-{date}.md"   # hand-reviewed precision section, if present
+    prec = SafePath(f"reports/precision-{date}.md", allowed_base())
     if prec.exists():
         L += ["", prec.read_text().rstrip()]
-    open(path, "w").write("\n".join(L) + "\n")
+    safe.write_text("\n".join(L) + "\n")

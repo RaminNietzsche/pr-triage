@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from kb.build import build_snapshot  # noqa: E402
 from kb.enrich import enrich_prs  # noqa: E402
 from triage.gitdata import Git, base_ref  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from run import LIMITATIONS  # noqa: E402
 
 
@@ -25,8 +26,8 @@ def main():
     ap.add_argument("--raw", default="data/raw")
     args = ap.parse_args()
 
-    nums = json.loads(Path(args.sample).read_text())["prs"]
-    raw = Path(args.raw)
+    nums = json.loads(SafePath(args.sample, ROOT).read_text())["prs"]
+    raw = resolve_under(args.raw, ROOT)
     clone = args.clone
     t0 = time.perf_counter()
     enriched = enrich_prs(raw, clone, numbers=nums)
@@ -40,9 +41,9 @@ def main():
         if git.has_ref(ref):
             tips[base] = git.out("rev-parse", "--short", ref).strip()
 
-    out = Path(args.out)
+    out = SafePath(args.out, ROOT)
     manifest = build_snapshot(
-        out,
+        out.path,
         raw_dir=raw,
         enriched_records=enriched,
         limitations=LIMITATIONS,

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pr_triage.batch import run_batch
 from pr_triage.context import activate_config
+from pr_triage.safepath import allowed_base, resolve_under
 
 
 def main(argv=None):
@@ -67,12 +68,13 @@ def main(argv=None):
         from kb.build import build_snapshot
         from kb.enrich import enrich_prs
 
-        raw = Path(args.raw or cfg.paths.raw_dir)
-        prs_cache = Path(args.prs_cache or cfg.paths.prs_cache)
+        root = allowed_base()
+        raw = resolve_under(args.raw or cfg.paths.raw_dir, root)
+        prs_cache = resolve_under(args.prs_cache or cfg.paths.prs_cache, root)
         clone = cfg.github.clone_dir
         enriched = enrich_prs(raw, clone) if Path(clone).is_dir() else None
         build_snapshot(
-            Path(args.out),
+            resolve_under(args.out, root),
             repo=cfg.github.repo,
             raw_dir=raw,
             prs_cache=prs_cache,
@@ -88,7 +90,7 @@ def main(argv=None):
         from pipeline.query import query_pr
 
         clone = args.clone or cfg.github.clone_dir
-        snap = load_snapshot(Path(args.kb))
+        snap = load_snapshot(resolve_under(args.kb, allowed_base()))
         use_clone = args.refresh_target or Path(clone).is_dir()
         clone_path = clone if use_clone and Path(clone).is_dir() else None
         if args.refresh_target and not clone_path:

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from kb.build import build_snapshot
 from kb.load import load_snapshot
@@ -23,7 +24,8 @@ def _staleness_row(number, *, conflicts=False, gone=None):
     }
 
 
-def test_build_snapshot_persists_staleness(tmp_path, minimal_pr):
+def test_build_snapshot_persists_staleness(tmp_path, minimal_pr, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     r1 = minimal_pr(62401, eff_files=["a.cc"])
     r1.update(
         {
@@ -40,7 +42,7 @@ def test_build_snapshot_persists_staleness(tmp_path, minimal_pr):
             },
         }
     )
-    raw = tmp_path / "raw"
+    raw = Path("raw")
     raw.mkdir()
     (raw / "pulls_open_p001.json").write_text(
         json.dumps(
@@ -60,7 +62,7 @@ def test_build_snapshot_persists_staleness(tmp_path, minimal_pr):
             ]
         )
     )
-    snap_dir = tmp_path / "kb"
+    snap_dir = Path("kb")
     build_snapshot(snap_dir, raw_dir=raw, enriched_records=[r1], base_tips={"main": "deadbeef"})
     line = json.loads((snap_dir / "prs.jsonl").read_text().strip())
     assert line["staleness"]["conflicts"] is True
@@ -76,7 +78,8 @@ def test_build_snapshot_persists_staleness(tmp_path, minimal_pr):
     assert "files-gone" in cats
 
 
-def test_query_uses_precomputed_without_staleness_dict(tmp_path, minimal_pr):
+def test_query_uses_precomputed_without_staleness_dict(tmp_path, minimal_pr, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     r1 = minimal_pr(72480)
     r1.update(
         {
@@ -91,7 +94,7 @@ def test_query_uses_precomputed_without_staleness_dict(tmp_path, minimal_pr):
             },
         }
     )
-    raw = tmp_path / "raw"
+    raw = Path("raw")
     raw.mkdir()
     (raw / "pulls_open_p001.json").write_text(
         json.dumps(
@@ -111,7 +114,7 @@ def test_query_uses_precomputed_without_staleness_dict(tmp_path, minimal_pr):
             ]
         )
     )
-    snap_dir = tmp_path / "kb"
+    snap_dir = Path("kb")
     build_snapshot(snap_dir, raw_dir=raw, enriched_records=[r1])
     loaded = load_snapshot(snap_dir)
     findings, _ = query_pr(loaded, 72480, no_tracker=True)

@@ -4,11 +4,45 @@ import re
 from pr_triage.context import get_config
 
 # A ticket is "primary" when the PR claims to fix/track it, not when it is cited as context.
-CONTEXT_RE = re.compile(
-    r"(?i)\b(?:validates?(?:\s+the)?(?:\s+fix)?|see also|related(?:\s+to)?|"
-    r"context|history|discussed in|continuation of|depends on|follow(?:s|-up)?\s+(?:to|for)|"
-    r"partial fix for|alternative fix|also fixes|same (?:bug|issue) as)\b"
+_FIXES_HASH_RE = re.compile(
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\s*:?\s*#(\d+)\b"
 )
+_FIXES_GH_URL_RE = re.compile(
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\b\s*:?\s*(?:<)?"
+    r"https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)"
+)
+_BARE_GH_ISSUE_LINE_RE = re.compile(
+    r"(?i)^\W*https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)[\s,;>.()]*$"
+)
+
+_CONTEXT_TERMS = (
+    "validate",
+    "validates",
+    "validates the",
+    "validates the fix",
+    "see also",
+    "related to",
+    "related",
+    "context",
+    "history",
+    "discussed in",
+    "continuation of",
+    "depends on",
+    "follow-up to",
+    "follow-up for",
+    "follows to",
+    "follows for",
+    "partial fix for",
+    "alternative fix",
+    "also fixes",
+    "same bug as",
+    "same issue as",
+)
+_CONTEXT_RES = tuple(re.compile(rf"(?i)\b{re.escape(term)}\b") for term in _CONTEXT_TERMS)
+
+
+def _is_context_line(line: str) -> bool:
+    return any(rx.search(line) for rx in _CONTEXT_RES)
 
 
 def _issue_re():
@@ -51,21 +85,16 @@ def _line_primary(line: str):
     line = line.strip()
     if not line:
         return []
-    if CONTEXT_RE.search(line) and not re.search(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:", line):
+    if _is_context_line(line) and not re.search(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:", line):
         return []
     out = _primary_res().findall(line)
     out.extend(_bare_re().findall(line))
     if out:
         return out
     # Generic: Fixes #123 or Fixes: https://github.com/org/repo/issues/123
-    out = re.findall(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:?\s*#(\d+)\b", line)
-    gh = re.findall(
-        r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\b\s*:?\s*(?:<)?"
-        r"https?://github\.com/[^/]+/[^/]+/issues/(\d+)",
-        line,
-    )
-    out.extend(gh)
-    out.extend(re.findall(r"(?i)^\W*https?://github\.com/[^/]+/[^/]+/issues/(\d+)[\s.,;>)\]]*$", line))
+    out = _FIXES_HASH_RE.findall(line)
+    out.extend(_FIXES_GH_URL_RE.findall(line))
+    out.extend(_BARE_GH_ISSUE_LINE_RE.findall(line))
     return out
 
 

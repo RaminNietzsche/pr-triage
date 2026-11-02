@@ -17,6 +17,7 @@ from pipeline.agreement import (  # noqa: E402
     load_batch_hp_rows,
 )
 from pipeline.drift import load_batch_snapshot  # noqa: E402
+from pr_triage.safepath import resolve_under  # noqa: E402
 from triage.collect import load_list  # noqa: E402
 
 
@@ -32,12 +33,12 @@ def main():
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    snap = load_snapshot(Path(args.kb))
-    batch_hp = load_batch_hp_rows(ROOT / args.batch_csv)
+    snap = load_snapshot(resolve_under(args.kb, ROOT))
+    batch_hp = load_batch_hp_rows(resolve_under(args.batch_csv, ROOT))
     batch_by_pr = index_batch_by_pr(batch_hp)
-    batch_meta = load_batch_snapshot(ROOT / args.batch_meta)
+    batch_meta = load_batch_snapshot(resolve_under(args.batch_meta, ROOT))
     github_by_n = {}
-    raw = ROOT / "data" / "raw"
+    raw = resolve_under("data/raw", ROOT)
     if raw.is_dir() and list(raw.glob("pulls_open_p*.json")):
         for pr in load_list(raw):
             github_by_n[pr["number"]] = pr
@@ -45,7 +46,7 @@ def main():
     prs = args.prs
     if not prs:
         prs = []
-        lat = Path(args.out).parent / "latency.csv"
+        lat = resolve_under(args.out, ROOT).parent / "latency.csv"
         if lat.is_file():
             with open(lat, newline="") as fh:
                 prs = [int(r["pr"]) for r in csv.DictReader(fh)]
@@ -55,7 +56,7 @@ def main():
         for n in prs
     ]
     agg = aggregate_totals(rows)
-    out = Path(args.out)
+    out = resolve_under(args.out, ROOT)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(

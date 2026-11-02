@@ -6,6 +6,11 @@ import re
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from pr_triage.safepath import resolve_under  # noqa: E402
+
 
 def parse_md(path: Path) -> dict:
     text = path.read_text()
@@ -22,8 +27,8 @@ def count_csv(path: Path) -> int:
 
 
 def main():
-    baseline_md = Path(sys.argv[1] if len(sys.argv) > 1 else "reports/all-2026-11-02.md")
-    candidate_md = Path(sys.argv[2] if len(sys.argv) > 2 else "reports/all-latest.md")
+    baseline_md = resolve_under(sys.argv[1] if len(sys.argv) > 1 else "reports/all-2026-11-02.md", ROOT)
+    candidate_md = resolve_under(sys.argv[2] if len(sys.argv) > 2 else "reports/all-latest.md", ROOT)
     b = parse_md(baseline_md)
     c = parse_md(candidate_md) if candidate_md.is_file() else {}
     print(json.dumps({"baseline": b, "candidate": c}, indent=2))

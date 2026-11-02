@@ -7,12 +7,13 @@ from kb.load import load_snapshot
 from pipeline.query import query_pr
 
 
-def test_build_and_query_minimal_kb(tmp_path, minimal_pr):
+def test_build_and_query_minimal_kb(tmp_path, minimal_pr, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     r1 = minimal_pr(1, patch_ids=["pid-a"], eff_patch_id="ep-a")
     r1.update({"url": "https://github.com/ceph/ceph/pull/1", "enriched": True, "updated_at": "2025-01-01T00:00:00Z"})
     r2 = minimal_pr(2, patch_ids=["pid-a"], eff_patch_id="ep-a")
     r2.update({"url": "https://github.com/ceph/ceph/pull/2", "enriched": True, "updated_at": "2025-01-01T00:00:00Z"})
-    raw = tmp_path / "raw"
+    raw = Path("raw")
     raw.mkdir()
     (raw / "pulls_open_p001.json").write_text(
         json.dumps(
@@ -26,7 +27,7 @@ def test_build_and_query_minimal_kb(tmp_path, minimal_pr):
             ]
         )
     )
-    snap_dir = tmp_path / "kb"
+    snap_dir = Path("kb")
     build_snapshot(snap_dir, raw_dir=raw, enriched_records=[r1, r2])
     loaded = load_snapshot(snap_dir)
     assert loaded["manifest"]["n_open"] == 2

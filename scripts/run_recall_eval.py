@@ -20,6 +20,7 @@ from pipeline.agreement import (  # noqa: E402
     load_batch_hp_rows,
 )
 from pipeline.drift import load_batch_snapshot  # noqa: E402
+from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
 from triage.collect import load_list  # noqa: E402
 
 
@@ -43,19 +44,19 @@ def main():
     ap.add_argument("--no-tracker", action="store_true", help="skip tracker (ticket-closed will not fire)")
     args = ap.parse_args()
 
-    out_dir = Path(args.out_dir)
+    out_dir = resolve_under(args.out_dir, ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
-    sample = json.loads(Path(args.sample).read_text())
+    sample = json.loads(SafePath(args.sample, ROOT).read_text())
     prs = sample["prs"]
 
     t_load = time.perf_counter()
-    snap = load_snapshot(ROOT / args.kb)
+    snap = load_snapshot(resolve_under(args.kb, ROOT))
     load_s = time.perf_counter() - t_load
 
-    batch_hp = load_batch_hp_rows(ROOT / args.batch_csv)
+    batch_hp = load_batch_hp_rows(resolve_under(args.batch_csv, ROOT))
     batch_by_pr = index_batch_by_pr(batch_hp)
-    batch_meta = load_batch_snapshot(ROOT / args.batch_meta)
-    github_by_n = load_github_by_n(ROOT / args.raw)
+    batch_meta = load_batch_snapshot(resolve_under(args.batch_meta, ROOT))
+    github_by_n = load_github_by_n(resolve_under(args.raw, ROOT))
 
     latencies = []
     rows = []
