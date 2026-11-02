@@ -6,9 +6,16 @@ from pr_triage.context import get_config
 from .gitdata import base_ref
 
 
-def _base_path_moves(git, merge_base, tip, tip_files):
-    """Map old paths removed on the base branch to new paths (full diff, rename detection)."""
-    ns = git.out("diff", "-M", "--name-status", "--diff-filter=RD", merge_base, tip)
+def _rename_diff_flag() -> str:
+    pct = get_config().thresholds.rename_similarity_percent
+    pct = max(0, min(100, int(pct)))
+    return f"-M{pct}%"
+
+
+def _base_path_moves(git, merge_base, tip):
+    """Map old paths removed on the base branch to new paths (full diff, git rename detection)."""
+    flag = _rename_diff_flag()
+    ns = git.out("diff", flag, "--find-renames", "--name-status", "--diff-filter=RD", merge_base, tip)
     renamed, deleted = {}, set()
     for line in ns.splitlines():
         if not line.strip():
@@ -20,15 +27,6 @@ def _base_path_moves(git, merge_base, tip, tip_files):
         elif code.startswith("D") and len(parts) >= 2:
             deleted.add(parts[1])
     return renamed, deleted
-
-
-def _guess_renamed_on_tip(old_path: str, tip_files: frozenset[str]) -> str | None:
-    """Fallback when git rename similarity is too low (e.g. requests/ -> src/requests/)."""
-    if old_path.startswith("requests/"):
-        candidate = "src/" + old_path
-        if candidate in tip_files:
-            return candidate
-    return None
 
 
 def staleness(git, recs, now=None, inactive_days=None):
@@ -52,11 +50,11 @@ def staleness(git, recs, now=None, inactive_days=None):
                 if f["status"] in "MDR" and f["old_path"] not in tip_files and f["old_path"] in own
             }
         )
-        renamed_on_base, deleted_on_base = _base_path_moves(git, g["merge_base"], btip, tip_files)
+        renamed_on_base, deleted_on_base = _base_path_moves(git, g["merge_base"], btip)
         moved, gone = {}, []
         removed_by = {}
         for path in candidates:
-            new_path = renamed_on_base.get(path) or _guess_renamed_on_tip(path, tip_files)
+            new_path = renamed_on_base.get(path)
             if new_path and new_path in tip_files:
                 moved[path] = new_path
                 continue

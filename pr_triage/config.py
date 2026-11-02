@@ -58,6 +58,7 @@ class LabelsConfig:
 class ThresholdsConfig:
     inactive_days: int = 365
     min_cherry_share: float = 0.25
+    rename_similarity_percent: int = 50  # git diff -M / --find-renames threshold
 
 
 @dataclass
@@ -173,9 +174,11 @@ def load_config(path: str | Path | None) -> TriageConfig:
         generic_labels=frozenset(comp.get("generic_labels") or ComponentConfig.generic_labels),
     )
     labels = LabelsConfig(**{k: data.get("labels", {}).get(k, v) for k, v in LabelsConfig().__dict__.items()})
+    th = data.get("thresholds") or {}
     thresholds = ThresholdsConfig(
-        inactive_days=int((data.get("thresholds") or {}).get("inactive_days", 365)),
-        min_cherry_share=float((data.get("thresholds") or {}).get("min_cherry_share", 0.25)),
+        inactive_days=int(th.get("inactive_days", 365)),
+        min_cherry_share=float(th.get("min_cherry_share", 0.25)),
+        rename_similarity_percent=int(th.get("rename_similarity_percent", 50)),
     )
     lim = LimitsConfig(max_prs_analyse=limits.get("max_prs_analyse"))
     data_paths = DataPaths(
