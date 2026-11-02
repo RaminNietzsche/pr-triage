@@ -69,9 +69,14 @@ def run_batch(
     allprs = list_open_pulls(cfg.github.repo, raw, max_age_s=0 if refresh else 10 ** 9)
     if list_only:
         return {"total_open": len(allprs), "list_only": True}
-    prefix = path_prefix if path_prefix else f"src/{component}/" if component != "all" else ""
+    if path_prefix:
+        prefix = path_prefix
+    elif component != "all":
+        prefix = f"src/{component}/"
+    else:
+        prefix = ""
     prs_cache = SafePath(cfg.paths.prs_cache, root)
-    recs, allrec, skipped = collect(raw, clone, prs_cache.path, component, prefix or "src/rgw/")
+    recs, _, skipped = collect(raw, clone, prs_cache.path, component, prefix or "src/rgw/")
     recs = [r for r in recs if r["number"] not in skipped]
     if cfg.limits.max_prs_analyse:
         recs = sorted(recs, key=lambda r: r["updated_at"], reverse=True)[: cfg.limits.max_prs_analyse]

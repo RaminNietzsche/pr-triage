@@ -12,7 +12,7 @@ def _link(n, by):
     return f"[#{n}]({r['url']})"
 
 
-def build_findings(recs, pairs, clusters_, stale, fixed, xrefs=(), backports=(), tickets=()):
+def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(), tickets=()):
     from pr_triage.context import get_config
 
     cfg = get_config()
@@ -40,7 +40,12 @@ def build_findings(recs, pairs, clusters_, stale, fixed, xrefs=(), backports=(),
         desc = ", ".join(f"#{c['id']} {c['status']}" + (f" of #{', #'.join(map(str, c['duplicate_of']))}" if c.get("duplicate_of") else "")
                          + (f" ({c['closed_on'][:10]})" if c.get("closed_on") else "") for c in t["closed"])
         if t["all_closed"]:
-            kind = "fix reported landed" if sts <= FIX_LANDED else ("closed without fix" if sts <= NOT_FIXED else "closed")
+            if sts <= FIX_LANDED:
+                kind = "fix reported landed"
+            elif sts <= NOT_FIXED:
+                kind = "closed without fix"
+            else:
+                kind = "closed"
             F.append({"category": "ticket-closed", "prs": [t["number"]], "confidence": "medium",
                       "reason": f"all {len(t['relevant'])} linked primary ticket(s) closed on {tracker_label}, {kind}: {desc}", "score": 1})
         else:
@@ -205,15 +210,17 @@ def write_csv(path, findings, recs):
                         "/".join(sorted({by[n]["base"] for n in f["prs"]})), f["reason"]])
 
 
-def write_md(path, date, recs, findings, clusters_, method, meta):
+def write_md(path, date, recs, findings, clusters_, method, meta):  # noqa: ARG001 clusters_ kept for API
     safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
     cnt = Counter((f["category"], f["confidence"]) for f in findings)
-    cats = sorted({c for c, _ in cnt})
+    cats = sorted({c for c, _ in cnt.items()})
     comp = meta.get("component", "rgw")
     allmode = comp == "all"
-    scope = (f"all open PRs analysed: **{len(recs)}**" if allmode else
-             f"{comp} PRs analysed: **{len(recs)}** (label `{comp}` or files under `{meta.get('path_prefix')}`)")
+    if allmode:
+        scope = f"all open PRs analysed: **{len(recs)}**"
+    else:
+        scope = f"{comp} PRs analysed: **{len(recs)}** (label `{comp}` or files under `{meta.get('path_prefix')}`)"
     n_actionable_prs = len(actionable_prs(findings))
     n_actionable_high = count_actionable_high_findings(findings)
     display = meta.get("display_name") or "Project"

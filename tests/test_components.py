@@ -12,7 +12,8 @@ def test_by_path_prefers_specific_over_qa_tests():
 
 def test_path_counts_multiple():
     c = path_counts(["src/rgw/a.cc", "src/mon/b.cc"])
-    assert c["rgw"] == 1 and c["mon"] == 1
+    assert c["rgw"] == 1
+    assert c["mon"] == 1
 
 
 def test_primary_component_label_priority_with_paths():

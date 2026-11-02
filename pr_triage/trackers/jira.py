@@ -19,5 +19,5 @@ class JiraTracker:
             "tracker": "Jira",
         }
 
-    def duplicate_of(self, tid: str) -> list:
+    def duplicate_of(self, _tid: str) -> list:
         return []

@@ -70,7 +70,7 @@ def already_fixed(git, recs):
             share = len(in_base) / max(1, item["commits_total"])
             min_share = _min_cherry_share()
             if in_base and not not_in:
-                pass
+                pass  # all commits already in base; still subject to share thresholds below
             elif in_base and share < min_share and not item["ticket_hits"]:
                 continue  # a few cherry-picked commits on a long branch are not "already landed"
             elif in_base and share < min_share and item.get("confidence") == "low" and not item["ticket_hits"]:

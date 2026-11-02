@@ -44,7 +44,7 @@ def main():
     ap.add_argument("--no-tracker", action="store_true", help="skip tracker (ticket-closed will not fire)")
     args = ap.parse_args()
 
-    out_dir = resolve_under(args.out_dir, ROOT)
+    out_dir = SafePath(args.out_dir, ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
     sample = json.loads(SafePath(args.sample, ROOT).read_text())
     prs = sample["prs"]
@@ -107,12 +107,12 @@ def main():
             )
         for m in r["matches"]:
             csv_rows.append({"pr": r["pr"], "kind": "match", "category": m[0], "classification": "", "base_tip_drift": "", "head_sha_drift": ""})
-    with open(out_dir / "agreement.csv", "w", newline="") as fh:
+    with (out_dir / "agreement.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=["pr", "kind", "category", "classification", "base_tip_drift", "head_sha_drift"])
         w.writeheader()
         w.writerows(csv_rows)
 
-    with open(out_dir / "latency.csv", "w", newline="") as fh:
+    with (out_dir / "latency.csv").open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["pr", "latency_s"])
         for n, ls in zip(prs, latencies):

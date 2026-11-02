@@ -33,7 +33,8 @@ def test_ticket_findings_all_primary_closed():
     }
     tr = FakeTracker({2000: {"id": 2000, "status": "Resolved", "is_closed": True, "tracker": "Bug"}})
     out = ticket_findings(tr, [rec])
-    assert len(out) == 1 and out[0]["all_closed"]
+    assert len(out) == 1
+    assert out[0]["all_closed"]
 
 
 def test_ticket_findings_ignores_non_obsolete_closed_status():
