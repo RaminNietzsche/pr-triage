@@ -1,0 +1,59 @@
+# SAMPLE ONLY, NOT ENABLED. Rename to weekly-triage.yml to enable in a fork.
+#
+# Weekly, report-only run of ceph-pr-triage against ceph/ceph.
+# The job has read-only repository permissions and writes nothing to GitHub:
+# no comments, labels, reviews, issues or PR state changes. Its only output is
+# the report uploaded as a workflow artifact for humans to read.
+name: weekly-triage (report only)
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"      # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read             # nothing else: no issues, pull-requests or checks write
+
+concurrency:
+  group: weekly-triage
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore caches (clone, PR analysis, tracker lookups)
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/repo
+            data/prs.json
+            data/tracker
+            ~/.cache/huggingface
+          key: triage-${{ github.run_id }}
+          restore-keys: triage-
+
+      - name: Run triage (read-only)
+        env:
+          # The default token is only used to raise the REST rate limit for GET requests;
+          # the job's permissions above make it unable to write anything.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./triage.sh --refresh --component all
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceph-pr-triage-${{ github.run_number }}
+          path: |
+            reports/*.md
+            reports/*.csv
+          retention-days: 30

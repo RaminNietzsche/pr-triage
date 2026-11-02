@@ -1,0 +1,2 @@
+# Default profile for this checkout (Ceph reference config).
+config: configs/ceph.yml

@@ -1,0 +1,6 @@
+numpy>=1.26
+pyyaml>=6.0
+scikit-learn>=1.4
+# optional but recommended: local embeddings (CPU). Falls back to TF-IDF if missing.
+sentence-transformers>=3.0
+# CPU-only torch: pip install --index-url https://download.pytorch.org/whl/cpu torch

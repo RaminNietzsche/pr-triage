@@ -1,0 +1,45 @@
+name: requests
+report:
+  display_name: Requests
+  tool_name: pr-triage
+github:
+  repo: psf/requests
+  default_base: main
+  clone_dir: data/repo/requests
+  release_branches: []
+tracker:
+  plugin: github_issues
+  issue_id_regex: 'github\.com/psf/requests/issues/(\d+)'
+  user_agent: pr-triage (read-only)
+  delay_s: 0.5
+  fix_landed_statuses: [Closed]
+  not_fixed_statuses: []
+  backport_tracker_name: Backport
+  release_branches: []
+components:
+  label_priority: [documentation, tests]
+  path_rules:
+    - prefix: requests/
+      component: core
+    - prefix: tests/
+      component: tests
+    - prefix: docs/
+      component: documentation
+  generic_labels: [documentation, tests]
+labels:
+  needs_rebase: needs-rebase
+  stale: stale
+  pinned: pinned
+thresholds:
+  inactive_days: 365
+  min_cherry_share: 0.25
+paths:
+  data_dir: data-requests
+  raw_dir: data-requests/raw
+  prs_cache: data-requests/prs.json
+  tracker_cache: data-requests/tracker
+path_prefix_template: "{component}/"
+scopes:
+  - name: all
+    component: all
+    path_prefix: null

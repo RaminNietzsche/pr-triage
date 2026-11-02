@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+# large or regenerable caches
+data/repo/
+data/raw/
+data-requests/
+data-grpc/
+data/tracker/
+data/*.json
+data/*.log
+data/kb-snapshot-full/
+data/kb-snapshot-full.tar.gz

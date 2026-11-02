@@ -1,0 +1,59 @@
+name: PR triage (read-only)
+description: Run config-driven batch triage or build a KB snapshot without writing to the target repo.
+inputs:
+  config:
+    description: Path to configs/<profile>.yml
+    required: true
+  command:
+    description: batch | build-kb | per-pr
+    required: true
+    default: batch
+  component:
+    description: Scope for batch (default all)
+    required: false
+    default: all
+  pr_number:
+    description: PR number for per-pr command
+    required: false
+  kb_path:
+    description: KB snapshot path for per-pr
+    required: false
+    default: data/kb-snapshot
+  post_comment:
+    description: When true, allow workflows to post PR comments (default off)
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python3 -m pip install -q -r requirements.txt
+    - name: Cache open PR list
+      shell: bash
+      run: python3 -m pr_triage batch --config "${{ inputs.config }}" --list-only
+    - name: Fetch PR git refs
+      shell: bash
+      run: CONFIG="${{ inputs.config }}" ./scripts/setup_clone.sh
+    - name: Run triage command
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        case "${{ inputs.command }}" in
+          batch)
+            python3 -m pr_triage batch --config "${{ inputs.config }}" --component "${{ inputs.component }}"
+            ;;
+          build-kb)
+            python3 -m pr_triage build-kb --config "${{ inputs.config }}"
+            ;;
+          per-pr)
+            python3 -m pr_triage per-pr --config "${{ inputs.config }}" --pr "${{ inputs.pr_number }}" --kb "${{ inputs.kb_path }}" --render
+            ;;
+          *) echo "Unknown command"; exit 1 ;;
+        esac
+    - name: Comment opt-in reminder
+      if: inputs.post_comment == 'true'
+      shell: bash
+      run: echo "post_comment=true - ensure workflow permissions and maintainer review before enabling."

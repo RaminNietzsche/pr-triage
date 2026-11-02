@@ -1,0 +1,46 @@
+name: grpc
+github:
+  repo: grpc/grpc
+  default_base: master
+  clone_dir: data/repo/grpc
+  release_branches: []
+tracker:
+  plugin: github_issues
+  issue_id_regex: 'github\.com/grpc/grpc/issues/(\d+)'
+  user_agent: pr-triage (read-only)
+  delay_s: 0.5
+  fix_landed_statuses: [Closed]
+  not_fixed_statuses: []
+  backport_tracker_name: Backport
+  release_branches: []
+components:
+  label_priority: [lang/core, lang/bug, lang/enhancement, area/infra]
+  path_rules:
+    - prefix: src/core/
+      component: core
+    - prefix: src/cpp/
+      component: cpp
+    - prefix: test/
+      component: tests
+    - prefix: examples/
+      component: examples
+  generic_labels: [documentation, tests]
+labels:
+  needs_rebase: needs-rebase
+  stale: stale
+  pinned: pinned
+thresholds:
+  inactive_days: 365
+  min_cherry_share: 0.25
+limits:
+  max_prs_analyse: 100
+paths:
+  data_dir: data-grpc
+  raw_dir: data-grpc/raw
+  prs_cache: data-grpc/prs.json
+  tracker_cache: data-grpc/tracker
+path_prefix_template: "src/{component}/"
+scopes:
+  - name: all
+    component: all
+    path_prefix: null

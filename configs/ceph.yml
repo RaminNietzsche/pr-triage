@@ -1,0 +1,223 @@
+name: ceph
+report:
+  display_name: Ceph
+  tool_name: ceph-pr-triage
+github:
+  repo: ceph/ceph
+  default_base: main
+  clone_dir: data/repo/ceph
+  release_branches:
+  - squid
+  - tentacle
+  - umbrella
+  - reef
+tracker:
+  plugin: redmine
+  base_url: https://tracker.ceph.com
+  issue_id_regex: tracker\.ceph\.com/issues/(\d{4,6})
+  user_agent: ceph-pr-triage (read-only)
+  delay_s: 1.0
+  fix_landed_statuses:
+  - Resolved
+  - Pending Backport
+  - Backporting
+  not_fixed_statuses:
+  - Rejected
+  - Won't Fix
+  - Won't Fix - EOL
+  - Can't reproduce
+  - Duplicate
+  - Closed
+  backport_tracker_name: Backport
+  release_branches:
+  - squid
+  - tentacle
+  - umbrella
+  - reef
+  branch_title_prefixes:
+  - 'squid:'
+  - 'tentacle:'
+  - 'reef:'
+  - 'umbrella:'
+components:
+  label_priority:
+  - rgw
+  - cephfs
+  - nfs
+  - smb
+  - rbd
+  - dashboard
+  - cephadm
+  - rook
+  - orchestrator
+  - ceph-volume
+  - monitoring
+  - telemetry
+  - nvmeof
+  - crimson
+  - bluestore
+  - libcephsqlite
+  - mgr
+  - mon
+  - core
+  - common
+  - pybind
+  - build/ops
+  - documentation
+  - tests
+  path_rules:
+  - prefix: qa/workunits/rgw/
+    component: rgw
+  - prefix: qa/tasks/rgw
+    component: rgw
+  - prefix: qa/rgw/
+    component: rgw
+  - prefix: qa/workunits/rbd/
+    component: rbd
+  - prefix: qa/tasks/rbd
+    component: rbd
+  - prefix: qa/workunits/fs/
+    component: cephfs
+  - prefix: qa/tasks/cephfs/
+    component: cephfs
+  - prefix: qa/tasks/mgr/dashboard/
+    component: dashboard
+  - prefix: qa/suites/orch/
+    component: cephadm
+  - prefix: qa/tasks/cephadm
+    component: cephadm
+  - prefix: qa/suites/crimson
+    component: crimson
+  - prefix: qa/suites/rados/
+    component: core
+  - prefix: qa/workunits/rados/
+    component: core
+  - prefix: src/rgw/
+    component: rgw
+  - prefix: src/test/rgw/
+    component: rgw
+  - prefix: qa/suites/rgw/
+    component: rgw
+  - prefix: doc/radosgw/
+    component: rgw
+  - prefix: src/mds/
+    component: cephfs
+  - prefix: src/client/
+    component: cephfs
+  - prefix: src/cephfs
+    component: cephfs
+  - prefix: src/tools/cephfs
+    component: cephfs
+  - prefix: qa/suites/fs/
+    component: cephfs
+  - prefix: doc/cephfs/
+    component: cephfs
+  - prefix: src/pybind/mgr/volumes/
+    component: cephfs
+  - prefix: src/pybind/mgr/nfs/
+    component: nfs
+  - prefix: src/pybind/mgr/smb/
+    component: smb
+  - prefix: src/librbd/
+    component: rbd
+  - prefix: src/tools/rbd
+    component: rbd
+  - prefix: src/test/librbd/
+    component: rbd
+  - prefix: qa/suites/rbd/
+    component: rbd
+  - prefix: doc/rbd/
+    component: rbd
+  - prefix: src/pybind/mgr/dashboard/
+    component: dashboard
+  - prefix: src/pybind/mgr/cephadm/
+    component: cephadm
+  - prefix: src/cephadm/
+    component: cephadm
+  - prefix: src/pybind/mgr/rook/
+    component: rook
+  - prefix: src/pybind/mgr/orchestrator/
+    component: orchestrator
+  - prefix: src/ceph-volume/
+    component: ceph-volume
+  - prefix: monitoring/
+    component: monitoring
+  - prefix: src/pybind/mgr/telemetry/
+    component: telemetry
+  - prefix: src/nvmeof/
+    component: nvmeof
+  - prefix: src/crimson/
+    component: crimson
+  - prefix: src/test/crimson/
+    component: crimson
+  - prefix: src/os/bluestore/
+    component: bluestore
+  - prefix: src/pybind/mgr/
+    component: mgr
+  - prefix: src/mgr/
+    component: mgr
+  - prefix: src/mon/
+    component: mon
+  - prefix: src/osd/
+    component: core
+  - prefix: src/os/
+    component: core
+  - prefix: src/msg/
+    component: core
+  - prefix: src/librados/
+    component: core
+  - prefix: src/osdc/
+    component: core
+  - prefix: src/common/
+    component: common
+  - prefix: src/include/
+    component: common
+  - prefix: src/pybind/
+    component: pybind
+  - prefix: doc/
+    component: documentation
+  - prefix: qa/
+    component: tests
+  - prefix: src/test/
+    component: tests
+  - prefix: cmake
+    component: build/ops
+  - prefix: CMakeLists.txt
+    component: build/ops
+  - prefix: ceph.spec
+    component: build/ops
+  - prefix: debian/
+    component: build/ops
+  - prefix: install-deps.sh
+    component: build/ops
+  - prefix: src/script/
+    component: build/ops
+  - prefix: container/
+    component: build/ops
+labels:
+  needs_rebase: needs-rebase
+  stale: stale
+  pinned: pinned
+thresholds:
+  inactive_days: 365
+  min_cherry_share: 0.25
+paths:
+  data_dir: data
+  raw_dir: data/raw
+  prs_cache: data/prs.json
+  tracker_cache: data/tracker
+path_prefix_template: src/{component}/
+scopes:
+- name: all
+  component: all
+  path_prefix: null
+- name: rgw
+  component: rgw
+  path_prefix: src/rgw/
+limitations_extra:
+- Tracker status is read after the PR list, so a PR merged in between shows up as
+  ticket-closed.
+- In the precision review GitHub reported a PR as conflicting that `git merge-tree`
+  merges cleanly (#71301), so 'needs-rebase-label-but-clean' is low confidence.
+- A shared ticket does not prove the PR is obsolete (tickets often get several partial
+  fixes).
