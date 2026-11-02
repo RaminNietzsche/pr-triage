@@ -4,11 +4,10 @@ import re
 from pr_triage.context import get_config
 
 # A ticket is "primary" when the PR claims to fix/track it, not when it is cited as context.
-_FIXES_HASH_RE = re.compile(
-    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\s*:?\s*#(\d+)\b"
-)
+_FIXES_HASH_RE = re.compile(r"(?i)\b(?:fixes|closes|resolves)\s*:?\s*#(\d+)\b")
+_TITLE_FIX_HASH_RE = re.compile(r"(?i)^fix\s*:\s*#(\d+)\b")
 _FIXES_GH_URL_RE = re.compile(
-    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\b\s*:?\s*(?:<)?"
+    r"(?i)\b(?:fixes|closes|resolves)\b\s*:?\s*(?:<)?"
     r"https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)"
 )
 _BARE_GH_ISSUE_LINE_RE = re.compile(
@@ -85,22 +84,26 @@ def _line_primary(line: str):
     line = line.strip()
     if not line:
         return []
-    if _is_context_line(line) and not re.search(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:", line):
+    if _is_context_line(line) and not re.search(r"(?i)\b(?:fixes|closes|resolves)\s*:", line):
         return []
     out = _primary_res().findall(line)
     out.extend(_bare_re().findall(line))
     if out:
         return out
-    # Generic: Fixes #123 or Fixes: https://github.com/org/repo/issues/123
     out = _FIXES_HASH_RE.findall(line)
     out.extend(_FIXES_GH_URL_RE.findall(line))
-    out.extend(_BARE_GH_ISSUE_LINE_RE.findall(line))
-    return out
+    if out:
+        return out
+    if _BARE_GH_ISSUE_LINE_RE.match(line):
+        return _BARE_GH_ISSUE_LINE_RE.findall(line)
+    return []
 
 
 def primary_tickets(*texts):
     found = set()
-    for t in texts:
+    for i, t in enumerate(texts):
+        if i == 0 and t:
+            found.update(_TITLE_FIX_HASH_RE.findall(t.strip()))
         for line in (t or "").splitlines():
             found.update(_line_primary(line))
     return sorted(found, key=lambda x: int(x) if str(x).isdigit() else x)

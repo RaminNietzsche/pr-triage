@@ -40,6 +40,15 @@ def test_fixes_in_commit_message():
     assert primary_tickets(msg) == ["80894"]
 
 
+def test_history_issue_mention_not_primary():
+    body = "This reverts behavior from #1360 when #1361 added requote_uri in 2013."
+    assert primary_tickets(body) == []
+
+
+def test_title_fix_hash_primary():
+    assert primary_tickets("Fix: #42", "") == ["42"]
+
+
 def test_primary_ticket_texts_uses_both_commit_fields():
     from triage.tracker import primary_ticket_texts
 

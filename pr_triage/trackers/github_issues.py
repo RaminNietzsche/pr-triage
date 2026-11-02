@@ -9,7 +9,6 @@ from pathlib import Path
 
 from pr_triage.config import TrackerConfig
 
-
 class GitHubIssuesTracker:
     def __init__(self, cfg: TrackerConfig, cache_dir: Path, repo: str | None = None):
         self.cfg = cfg
@@ -25,22 +24,87 @@ class GitHubIssuesTracker:
             h["Authorization"] = f"Bearer {tok}"
         return h
 
+    def _get_json(self, url: str):
+        wait = self.cfg.delay_s - (time.time() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        self._last = time.time()
+        req = urllib.request.Request(url, headers=self._headers())
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.load(r)
+
+    def _pull_files(self, pr_number: int) -> list[str]:
+        if not self.repo:
+            return []
+        try:
+            data = self._get_json(
+                f"https://api.github.com/repos/{self.repo}/pulls/{pr_number}/files?per_page=100"
+            )
+            return [f["filename"] for f in data if f.get("filename")]
+        except Exception:
+            return []
+
+    def _issue_events(self, tid: str) -> list:
+        if not self.repo:
+            return []
+        try:
+            return self._get_json(
+                f"https://api.github.com/repos/{self.repo}/issues/{tid}/events?per_page=100"
+            )
+        except Exception:
+            return []
+
+    def _merged_prs_from_events(self, _tid: str, events: list) -> list[dict]:
+        seen: set[int] = set()
+        out: list[dict] = []
+        for ev in events:
+            if ev.get("event") != "cross-referenced":
+                continue
+            issue = (ev.get("source") or {}).get("issue") or {}
+            if not issue.get("pull_request"):
+                continue
+            num = issue.get("number")
+            if not num or num in seen:
+                continue
+            seen.add(num)
+            try:
+                pr = self._get_json(f"https://api.github.com/repos/{self.repo}/pulls/{num}")
+            except Exception:
+                continue
+            if not pr.get("merged_at"):
+                continue
+            files = self._pull_files(num)
+            out.append({"number": num, "merged_at": pr.get("merged_at"), "files": files})
+        return out
+
+    def _closing_comments(self, tid: str, events: list) -> list[str]:
+        comments = []
+        for ev in events:
+            if ev.get("event") == "closed" and ev.get("commit_id") is None:
+                pass
+        try:
+            data = self._get_json(
+                f"https://api.github.com/repos/{self.repo}/issues/{tid}/comments?per_page=30"
+            )
+            for c in data[-5:]:
+                comments.append(c.get("body") or "")
+        except Exception:
+            pass
+        return comments
+
     def issue(self, tid):
         f = self.dir / f"gh-{tid}.json"
         if f.exists() and time.time() - f.stat().st_mtime < self.cfg.cache_max_age_s:
             return json.loads(f.read_text())
         if not self.repo:
             return {"id": int(tid), "status": "no repo configured", "is_closed": None}
-        wait = self.cfg.delay_s - (time.time() - self._last)
-        if wait > 0:
-            time.sleep(wait)
-        self._last = time.time()
         url = f"https://api.github.com/repos/{self.repo}/issues/{tid}"
         req = urllib.request.Request(url, headers=self._headers())
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.load(r)
             closed = data.get("state") == "closed"
+            events = self._issue_events(str(tid)) if closed else []
             rec = {
                 "id": int(tid),
                 "status": "Closed" if closed else "Open",
@@ -48,8 +112,12 @@ class GitHubIssuesTracker:
                 "tracker": "GitHub Issue",
                 "project": self.repo,
                 "subject": data.get("title", ""),
+                "body": data.get("body") or "",
                 "closed_on": data.get("closed_at"),
                 "updated_on": data.get("updated_at"),
+                "state_reason": data.get("state_reason"),
+                "closing_comments": self._closing_comments(str(tid), events) if closed else [],
+                "merged_fix_prs": self._merged_prs_from_events(str(tid), events) if closed else [],
             }
         except urllib.error.HTTPError as e:
             rec = {"id": int(tid), "status": f"HTTP {e.code}", "is_closed": None}

@@ -28,6 +28,8 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
     F = []
     from .tracker import primary_ticket_texts, primary_tickets
 
+    is_github_tracker = tcfg.plugin in ("github_issues", "github")
+
     for t in tickets:
         if not t["closed"]:
             continue
@@ -36,9 +38,47 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
         rel_ids = {str(x) for x in t["relevant"]}
         if not claimed or not (claimed & rel_ids):
             continue
+        gh = t.get("github_summary") or {}
+        if is_github_tracker and gh and not gh.get("emit", True):
+            continue
+        partial = gh.get("partial") if is_github_tracker else None
+        if partial:
+            F.append(
+                {
+                    "category": "ticket-partly-superseded",
+                    "prs": [t["number"]],
+                    "confidence": partial["confidence"],
+                    "reason": (
+                        f"merged fix PR(s) #{', #'.join(map(str, partial['fix_prs']))} touched "
+                        f"{', '.join(partial['overlap'][:3])} but this PR also changes "
+                        f"{', '.join(partial['extra'][:3])} (partly superseded)"
+                    ),
+                    "score": 0.5,
+                }
+            )
+            continue
         sts = {c["status"] for c in t["closed"]}
-        desc = ", ".join(f"#{c['id']} {c['status']}" + (f" of #{', #'.join(map(str, c['duplicate_of']))}" if c.get("duplicate_of") else "")
-                         + (f" ({c['closed_on'][:10]})" if c.get("closed_on") else "") for c in t["closed"])
+        desc = ", ".join(
+            f"#{c['id']} {c['status']}"
+            + (f" of #{', #'.join(map(str, c['duplicate_of']))}" if c.get("duplicate_of") else "")
+            + (f" ({c['closed_on'][:10]})" if c.get("closed_on") else "")
+            for c in t["closed"]
+        )
+        if is_github_tracker and gh:
+            kind = gh.get("kind") or "ticket closed"
+            conf = gh.get("confidence") or "medium"
+            note = "; ".join(gh.get("notes") or [])
+            extra = f"; {note}" if note else ""
+            F.append(
+                {
+                    "category": "ticket-closed",
+                    "prs": [t["number"]],
+                    "confidence": conf,
+                    "reason": f"all {len(t['relevant'])} linked primary ticket(s) closed on {tracker_label}, {kind}: {desc}{extra}",
+                    "score": 1 if conf == "medium" else 0,
+                }
+            )
+            continue
         if t["all_closed"]:
             if sts <= FIX_LANDED:
                 kind = "fix reported landed"
@@ -87,9 +127,18 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
                   "confidence": f["confidence"], "reason": f["verdict"] + ": " + "; ".join(ev),
                   "score": len(f["commits_already_in_base"]) / max(1, f["commits_total"])})
     for s in stale:
+        rec_s = by[s["number"]]
+        moved = s.get("files_moved_on_base") or s.get("gone_renamed_to") or {}
+        moved_note = ""
+        if moved:
+            moved_note = "; files moved on base: " + ", ".join(
+                f"{old} -> {new}" for old, new in list(moved.items())[:3]
+            )
         if s["conflicts"]:
+            prefix = "head fork deleted; " if rec_s.get("head_fork_deleted") else ""
             F.append({"category": "merge-conflict", "prs": [s["number"]], "confidence": "high",
-                      "reason": f"git merge-tree vs {by[s['number']]['base']} tip conflicts in {', '.join(s['conflict_files'][:3])}"
+                      "reason": prefix + f"git merge-tree vs {rec_s['base']} tip conflicts in {', '.join(s['conflict_files'][:3])}"
+                      + moved_note
                       + (" (agrees with needs-rebase label)" if s["needs_rebase_label"] else " (no needs-rebase label yet)"),
                       "score": s["days_since_update"]})
         if s["needs_rebase_label"] and not s["conflicts"]:
@@ -97,12 +146,25 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
                       "reason": f"has needs-rebase label but git merge-tree merges it cleanly into {by[s['number']]['base']} tip"
                                 " (GitHub's own mergeable flag may still disagree; verify before acting)",
                       "score": 0})
+        if moved and not s["conflicts"]:
+            F.append(
+                {
+                    "category": "files-moved-on-base",
+                    "prs": [s["number"]],
+                    "confidence": "medium",
+                    "reason": f"{len(moved)}/{s['n_files']} touched paths moved on {rec_s['base']}: "
+                    + ", ".join(f"{old} moved to {new}" for old, new in list(moved.items())[:3]),
+                    "score": len(moved) / max(1, s["n_files"]),
+                }
+            )
         if s["files_gone_from_base"]:
-            allren = all(s["gone_renamed_to"].get(f) for f in s["files_gone_from_base"])
-            F.append({"category": "files-gone", "prs": [s["number"]], "confidence": "medium" if allren else "high",
-                      "reason": f"{len(s['files_gone_from_base'])}/{s['n_files']} touched files no longer exist on {by[s['number']]['base']}: "
-                      + ", ".join(f + (f" (renamed to {s['gone_renamed_to'][f]})" if s["gone_renamed_to"].get(f) else f" (removed by {s['gone_removed_by'].get(f) or '?'})")
-                                  for f in s["files_gone_from_base"][:3]), "score": len(s["files_gone_from_base"]) / s["n_files"]})
+            F.append({"category": "files-gone", "prs": [s["number"]], "confidence": "high",
+                      "reason": f"{len(s['files_gone_from_base'])}/{s['n_files']} touched files no longer exist on {rec_s['base']}: "
+                      + ", ".join(
+                          f + f" (removed by {s['gone_removed_by'].get(f) or '?'})"
+                          for f in s["files_gone_from_base"][:3]
+                      ),
+                      "score": len(s["files_gone_from_base"]) / s["n_files"]})
         if s["inactive"]:
             F.append({"category": "inactive>1y", "prs": [s["number"]], "confidence": "high",
                       "reason": f"no update for {s['days_since_update']} days" + (" (has stale label)" if s["stale_label"] else "")
@@ -114,9 +176,9 @@ def build_findings(recs, pairs, _clusters, stale, fixed, xrefs=(), backports=(),
 
 
 COMPONENT_GROUPS = {  # category groups for the per-component table
-    "conflict": ("merge-conflict",), "files-gone": ("files-gone",), "inactive": ("inactive>1y",),
+    "conflict": ("merge-conflict",), "files-gone": ("files-gone", "files-moved-on-base"), "inactive": ("inactive>1y",),
     "dup/compete": ("duplicate", "duplicate-backport", "competing-fix", "stated-supersede", "overlapping-backports"),
-    "in-base": ("already-in-base",), "ticket": ("ticket-closed", "ticket-partly-closed"),
+    "in-base": ("already-in-base",), "ticket": ("ticket-closed", "ticket-partly-closed", "ticket-partly-superseded"),
     "backport": ("backport-source-not-on-main", "backport-trailer-sha-mismatch"),
     "info": ("stacked", "shares-commits", "related-series", "possible-overlap", "needs-rebase-label-but-clean"),
 }

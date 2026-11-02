@@ -100,7 +100,7 @@ def run_batch(
     tk = (
         []
         if not use_tracker
-        else ticket_findings(Tracker(resolve_under(cfg.paths.tracker_cache, root)), recs)
+        else ticket_findings(Tracker(resolve_under(cfg.paths.tracker_cache, root)), recs, git=git)
     )
     findings = build_findings(recs, pairs, cl, st, fx, xr, bp, tk)
     if cfg.enabled_categories:
