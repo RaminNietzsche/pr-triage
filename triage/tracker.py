@@ -4,34 +4,16 @@ import re
 from pr_triage.context import get_config
 
 # A ticket is "primary" when the PR claims to fix/track it, not when it is cited as context.
-_FIXES_HASH_RES = (
-    re.compile(r"(?i)\bfixes\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bfixed\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bfix\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bresolves\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bresolve\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bcloses\s*:?\s*#(\d+)\b"),
-    re.compile(r"(?i)\bclose\s*:?\s*#(\d+)\b"),
+_FIXES_HASH_RE = re.compile(
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\s*:?\s*#(\d+)\b"
 )
-_FIXES_GH_URL_RES = (
-    re.compile(r"(?i)\bfixes\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bfixed\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bfix\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bresolves\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bresolve\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bcloses\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
-    re.compile(r"(?i)\bclose\b\s*:?\s*(?:<)?https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)"),
+_FIXES_GH_URL_RE = re.compile(
+    r"(?i)\b(?:fixes|fixed|fix|resolves|resolve|closes|close)\b\s*:?\s*(?:<)?"
+    r"https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)"
 )
 _BARE_GH_ISSUE_LINE_RE = re.compile(
-    r"(?i)^\W*https?://github\.com/[A-Za-z0-9_+-]+/[A-Za-z0-9_+-]+/issues/(\d+)[\s,;>.()]*$"
+    r"(?i)^\W*https?://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/issues/(\d+)[\s,;>.()]*$"
 )
-
-
-def _fixes_hash_ids(line: str) -> list[str]:
-    found: list[str] = []
-    for rx in _FIXES_HASH_RES:
-        found.extend(rx.findall(line))
-    return found
 
 _CONTEXT_TERMS = (
     "validate",
@@ -110,9 +92,8 @@ def _line_primary(line: str):
     if out:
         return out
     # Generic: Fixes #123 or Fixes: https://github.com/org/repo/issues/123
-    out = _fixes_hash_ids(line)
-    for rx in _FIXES_GH_URL_RES:
-        out.extend(rx.findall(line))
+    out = _FIXES_HASH_RE.findall(line)
+    out.extend(_FIXES_GH_URL_RE.findall(line))
     out.extend(_BARE_GH_ISSUE_LINE_RE.findall(line))
     return out
 
