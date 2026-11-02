@@ -137,9 +137,9 @@ def query_pr(snapshot: dict, pr_number: int, *, clone: str | None = None, no_tra
     if not no_tracker:
         tracker_root = snapshot.get("root") and (snapshot["root"] / "tracker")
         if tracker_root and tracker_root.is_dir():
-            tk = ticket_findings(Tracker(tracker_root), [target])
+            tk = ticket_findings(Tracker(tracker_root), [target], git=git)
         elif Path("data/tracker").is_dir():
-            tk = ticket_findings(Tracker(Path("data/tracker")), [target])
+            tk = ticket_findings(Tracker(Path("data/tracker")), [target], git=git)
 
     related = {pr_number}
     for p in pairs:

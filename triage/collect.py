@@ -50,11 +50,14 @@ def collect(raw_dir: Path, repo_dir: str, out: Path, label="rgw", path_prefix="s
                 info = analyse_pr(git, n, pr["base"]["ref"])
             except Exception as e:  # keep going; record the error
                 info = {"error": str(e)[:300]}
+        head = pr.get("head") or {}
         rec = {
             "number": n, "url": pr["html_url"], "title": pr["title"], "body": clean_body(pr["body"]),
             "author": pr["user"]["login"], "created_at": pr["created_at"], "updated_at": pr["updated_at"],
             "base": pr["base"]["ref"], "draft": pr.get("draft", False),
             "labels": [l["name"] for l in pr["labels"]], "head_sha": info.get("head_sha"), "git": info,
+            "mergeable": pr.get("mergeable"),
+            "head_fork_deleted": head.get("repo") is None,
         }
         rec["tickets"] = tickets(pr["title"], pr["body"], info.get("commit_msgs", ""))
         allrec.append(rec)
