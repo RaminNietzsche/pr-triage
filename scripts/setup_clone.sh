@@ -26,7 +26,7 @@ d = yaml.safe_load(Path("$CONFIG").read_text())
 print((d.get("paths") or {}).get("raw_dir", "data/raw"))
 PY
 )}
-[ -d "$CLONE" ] || git clone --single-branch --branch "$DEFAULT_BRANCH" "https://github.com/${REPO}.git" "$CLONE"
+[[ -d "$CLONE" ]] || git clone --single-branch --branch "$DEFAULT_BRANCH" "https://github.com/${REPO}.git" "$CLONE"
 python3 - <<PY > /tmp/pr-triage-specs
 import glob, json
 from pathlib import Path

@@ -8,13 +8,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from pr_triage.safepath import resolve_under  # noqa: E402
 from triage.report import (  # noqa: E402
     actionable_prs_from_csv_rows,
     count_actionable_high_from_csv_rows,
 )
 
-BASELINE_MD = Path("reports/all-2026-11-02.md")
-BASELINE_CSV = Path("reports/all-2026-11-02.csv")
+BASELINE_MD = resolve_under("reports/all-2026-11-02.md", ROOT)
+BASELINE_CSV = resolve_under("reports/all-2026-11-02.csv", ROOT)
 
 
 def md_totals(path: Path):

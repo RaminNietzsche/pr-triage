@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from pipeline.agreement import load_batch_hp_rows, norm_category  # noqa: E402
+from pr_triage.safepath import resolve_under  # noqa: E402
 
 # PRs that stress structural + duplicate categories in the tightened batch CSV
 ANCHOR = {62462, 43518, 70017, 67875}
@@ -27,7 +28,7 @@ def main():
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    hp = load_batch_hp_rows(ROOT / args.batch_csv)
+    hp = load_batch_hp_rows(resolve_under(args.batch_csv, ROOT))
     by_cat = defaultdict(set)
     all_prs = set()
     for f in hp:
@@ -36,7 +37,7 @@ def main():
             by_cat[cat].add(n)
             all_prs.add(n)
 
-    rng = random.Random(args.seed)
+    rng = random.Random(args.seed)  # NOSONAR reproducible stratified sampling, not security-sensitive
     picked = set(ANCHOR)
     cats = sorted(by_cat.keys())
     per_cat = max(3, args.n // max(1, len(cats)))
@@ -58,7 +59,7 @@ def main():
         picked.add(n)
 
     sample = sorted(picked)[: args.n]
-    out = Path(args.out)
+    out = resolve_under(args.out, ROOT)
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "n_requested": args.n,

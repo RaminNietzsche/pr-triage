@@ -10,6 +10,8 @@ from triage.collect import clean_body, load_list
 from triage.components import primary_component
 from triage.github_api import list_open_pulls
 
+from pr_triage.safepath import allowed_base, resolve_under
+
 from .indexes import build_indexes
 from .schema import KB_VERSION
 
@@ -90,9 +92,10 @@ def build_snapshot(
     base_tips=None,
 ):
     """Write snapshot under out_dir. Merges API list with optional enriched git analysis."""
-    raw_dir = Path(raw_dir or "data/raw")
-    prs_cache = Path(prs_cache or "data/prs.json")
-    out_dir = Path(out_dir)
+    root = allowed_base()
+    raw_dir = resolve_under(raw_dir or "data/raw", root)
+    prs_cache = resolve_under(prs_cache or "data/prs.json", root)
+    out_dir = resolve_under(out_dir, root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prs = load_list(raw_dir) if list(raw_dir.glob("pulls_open_p*.json")) else list_open_pulls(repo, raw_dir)
@@ -148,7 +151,7 @@ def build_snapshot(
     meta = out_dir / "meta"
     meta.mkdir(exist_ok=True)
     (meta / "limitations.json").write_text(json.dumps(limitations or [], indent=2))
-    tracker_src = Path("data/tracker")
+    tracker_src = resolve_under("data/tracker", root)
     if tracker_src.is_dir():
         dst = out_dir / "tracker"
         if dst.exists():
@@ -158,8 +161,9 @@ def build_snapshot(
 
 
 def pack_snapshot(snapshot_dir: Path, archive: Path):
-    snapshot_dir = Path(snapshot_dir)
-    archive = Path(archive)
+    root = allowed_base()
+    snapshot_dir = resolve_under(snapshot_dir, root)
+    archive = resolve_under(archive, root)
     archive.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(archive, "w:gz") as tf:
         tf.add(snapshot_dir, arcname=snapshot_dir.name)

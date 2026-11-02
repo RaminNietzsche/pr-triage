@@ -4,6 +4,15 @@ import re
 from pr_triage.context import get_config
 
 # A ticket is "primary" when the PR claims to fix/track it, not when it is cited as context.
+_FIXES_HASH_RE = re.compile(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:?\s*#(\d+)\b")
+_FIXES_GH_URL_RE = re.compile(
+    r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\b\s*:?\s*(?:<)?"
+    r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)"
+)
+_BARE_GH_ISSUE_LINE_RE = re.compile(
+    r"(?i)^\W*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/(\d+)[\s.,;>)\]]*$"
+)
+
 CONTEXT_RE = re.compile(
     r"(?i)\b(?:validates?(?:\s+the)?(?:\s+fix)?|see also|related(?:\s+to)?|"
     r"context|history|discussed in|continuation of|depends on|follow(?:s|-up)?\s+(?:to|for)|"
@@ -58,14 +67,9 @@ def _line_primary(line: str):
     if out:
         return out
     # Generic: Fixes #123 or Fixes: https://github.com/org/repo/issues/123
-    out = re.findall(r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\s*:?\s*#(\d+)\b", line)
-    gh = re.findall(
-        r"(?i)\b(?:fix(?:es|ed)?|resolves?|closes?)\b\s*:?\s*(?:<)?"
-        r"https?://github\.com/[^/]+/[^/]+/issues/(\d+)",
-        line,
-    )
-    out.extend(gh)
-    out.extend(re.findall(r"(?i)^\W*https?://github\.com/[^/]+/[^/]+/issues/(\d+)[\s.,;>)\]]*$", line))
+    out = _FIXES_HASH_RE.findall(line)
+    out.extend(_FIXES_GH_URL_RE.findall(line))
+    out.extend(_BARE_GH_ISSUE_LINE_RE.findall(line))
     return out
 
 

@@ -1,12 +1,15 @@
 """Report markdown must not hardcode Ceph when using a non-Ceph profile."""
 
+from pathlib import Path
+
 from pr_triage.config import load_config
 from pr_triage.context import set_config
 from triage.report import write_md
 
 
-def test_write_md_requests_profile_has_no_ceph(tmp_path):
+def test_write_md_requests_profile_has_no_ceph(tmp_path, monkeypatch):
     cfg = load_config("configs/requests.yml")
+    monkeypatch.chdir(tmp_path)
     set_config(cfg)
     recs = [
         {
@@ -30,7 +33,7 @@ def test_write_md_requests_profile_has_no_ceph(tmp_path):
         "tool_name": cfg.report.tool_name,
         "github_repo": cfg.github.repo,
     }
-    out = tmp_path / "requests-all-test.md"
+    out = Path("requests-all-test.md")
     write_md(out, "2026-11-02", recs, [], [], "TF-IDF (test)", meta)
     text = out.read_text()
     assert "Ceph" not in text

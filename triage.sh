@@ -7,7 +7,7 @@ set -euo pipefail
 export PYTHONUNBUFFERED=1
 cd "$(dirname "$0")"
 PY=${PYTHON:-python3}
-if [ ! -x .venv/bin/python ]; then
+if [[ ! -x .venv/bin/python ]]; then
   "$PY" -m venv .venv
   .venv/bin/pip install -q --upgrade pip
   .venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu torch

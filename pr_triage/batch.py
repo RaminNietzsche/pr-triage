@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from pr_triage.config import TriageConfig
+from pr_triage.safepath import allowed_base, resolve_under
 from triage.collect import collect
 from triage.dupes import clusters, find_pairs
 from triage.fixed import already_fixed, backport_sources
@@ -57,7 +58,8 @@ def run_batch(
     no_tracker: bool = False,
     list_only: bool = False,
 ) -> dict:
-    raw = Path(cfg.paths.raw_dir)
+    root = allowed_base()
+    raw = resolve_under(cfg.paths.raw_dir, root)
     clone = cfg.github.clone_dir
     if path_prefix is None:
         if component == "all":
@@ -68,12 +70,9 @@ def run_batch(
     if list_only:
         return {"total_open": len(allprs), "list_only": True}
     prefix = path_prefix if path_prefix else f"src/{component}/" if component != "all" else ""
-    prs_cache = Path(cfg.paths.prs_cache)
+    prs_cache = resolve_under(cfg.paths.prs_cache, root)
     recs, allrec, skipped = collect(raw, clone, prs_cache, component, prefix or "src/rgw/")
-    if component == "all":
-        recs = [r for r in recs if r["number"] not in skipped]
-    else:
-        recs = [r for r in recs if r["number"] not in skipped]
+    recs = [r for r in recs if r["number"] not in skipped]
     if cfg.limits.max_prs_analyse:
         recs = sorted(recs, key=lambda r: r["updated_at"], reverse=True)[: cfg.limits.max_prs_analyse]
     git = Git(clone)
@@ -93,18 +92,22 @@ def run_batch(
     xr = cross_refs(recs, {r["number"] for r in recs})
     bp = backport_sources(git, recs)
     use_tracker = not no_tracker and cfg.tracker.plugin != "none"
-    tk = [] if not use_tracker else ticket_findings(Tracker(Path(cfg.paths.tracker_cache)), recs)
+    tk = (
+        []
+        if not use_tracker
+        else ticket_findings(Tracker(resolve_under(cfg.paths.tracker_cache, root)), recs)
+    )
     findings = build_findings(recs, pairs, cl, st, fx, xr, bp, tk)
     if cfg.enabled_categories:
         findings = [f for f in findings if f["category"] in cfg.enabled_categories]
     d = date.today().isoformat()
-    Path("reports").mkdir(exist_ok=True)
+    resolve_under("reports", root).mkdir(exist_ok=True)
     scope = component
     if cfg.name and cfg.name not in ("ceph",):
         report_stem = f"{cfg.name}-{scope}"
     else:
         report_stem = scope
-    Path(f"data/analysis-{report_stem}-{d}.json").write_text(
+    resolve_under(f"data/analysis-{report_stem}-{d}.json", root).write_text(
         json.dumps(
             {"tickets": tk, "backports": bp, "xrefs": xr, "pairs": pairs, "clusters": cl, "staleness": st, "fixed": fx, "findings": findings},
             indent=1,
@@ -126,8 +129,8 @@ def run_batch(
         "tool_name": cfg.report.tool_name,
         "github_repo": cfg.github.repo,
     }
-    write_md(f"reports/{report_stem}-{d}.md", d, recs, findings, cl, method, meta)
-    write_csv(f"reports/{report_stem}-{d}.csv", findings, recs)
+    write_md(resolve_under(f"reports/{report_stem}-{d}.md", root), d, recs, findings, cl, method, meta)
+    write_csv(resolve_under(f"reports/{report_stem}-{d}.csv", root), findings, recs)
     if prs_cache.exists():
         cache = json.loads(prs_cache.read_text())
         by_n = {r["number"]: r for r in cache.get("all", [])}

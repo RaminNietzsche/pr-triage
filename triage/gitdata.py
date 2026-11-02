@@ -3,7 +3,6 @@
 Everything here is computed from a local clone; nothing is written to GitHub."""
 import re
 import subprocess
-from functools import lru_cache
 
 MAX_DIFF_BYTES = 20_000
 MAX_COMMITS = 250
@@ -12,6 +11,7 @@ MAX_COMMITS = 250
 class Git:
     def __init__(self, repo_dir):
         self.dir = repo_dir
+        self._tree_files_cache: dict[str, frozenset[str]] = {}
 
     def run(self, *args, check=True):
         p = subprocess.run(["git", "-C", self.dir, *args], capture_output=True, text=True, errors="replace")
@@ -25,9 +25,12 @@ class Git:
     def has_ref(self, ref):
         return self.run("rev-parse", "--verify", "-q", ref, check=False).returncode == 0
 
-    @lru_cache(maxsize=16)
     def tree_files(self, ref):
-        return frozenset(self.out("ls-tree", "-r", "--name-only", ref).splitlines())
+        if ref not in self._tree_files_cache:
+            self._tree_files_cache[ref] = frozenset(
+                self.out("ls-tree", "-r", "--name-only", ref).splitlines()
+            )
+        return self._tree_files_cache[ref]
 
 
 def base_ref(base):

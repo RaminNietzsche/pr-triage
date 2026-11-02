@@ -29,7 +29,8 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        python3 -m pip install -q -r requirements.txt
+        python3 -m pip install -q --only-binary :all: -r requirements.txt
+        python3 -m pip install -q --only-binary :all: pytest==8.3.3
     - name: Cache open PR list
       shell: bash
       run: python3 -m pr_triage batch --config "${{ inputs.config }}" --list-only

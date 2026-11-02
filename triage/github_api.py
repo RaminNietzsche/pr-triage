@@ -9,6 +9,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+from pr_triage.safepath import allowed_base, resolve_under
+
 API = "https://api.github.com"
 
 
@@ -44,10 +46,11 @@ def _get_once(url):
 
 def list_open_pulls(repo, cache_dir: Path, max_age_s=6 * 3600):
     """Return all open PRs of `repo` (list endpoint: metadata, labels, base/head, body)."""
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_root = resolve_under(cache_dir, allowed_base())
+    cache_root.mkdir(parents=True, exist_ok=True)
     out, page = [], 1
     while True:
-        f = cache_dir / f"pulls_open_p{page:03d}.json"
+        f = resolve_under(cache_root / f"pulls_open_p{page:03d}.json", cache_root)
         if f.exists() and time.time() - f.stat().st_mtime < max_age_s:
             data = json.loads(f.read_text())
             more = len(data) == 100

@@ -22,6 +22,7 @@ from pipeline.comment import render_comment  # noqa: E402
 from pipeline.filter import filter_findings  # noqa: E402
 from pipeline.query import query_pr  # noqa: E402
 from triage import dupes  # noqa: E402
+from pr_triage.safepath import resolve_under  # noqa: E402
 from triage.github_api import list_open_pulls  # noqa: E402
 
 
@@ -66,38 +67,38 @@ def main():
     )
     ap.add_argument("--build-stats", help="build-stats.json from full KB build")
     args = ap.parse_args()
-    out = Path(args.out)
+    out = resolve_under(args.out, ROOT)
     out.mkdir(parents=True, exist_ok=True)
 
-    raw = ROOT / "data" / "raw"
+    raw = resolve_under("data/raw", ROOT)
     raw.mkdir(parents=True, exist_ok=True)
     list_open_pulls("ceph/ceph", raw, max_age_s=3600)
     numbers = pick_recent(raw, args.count)
 
     download_s = 0.0
     load_s = 0.0
-    snap_dir = Path(args.kb) if args.kb else ROOT / "data" / "kb-snapshot"
+    snap_dir = resolve_under(args.kb, ROOT) if args.kb else resolve_under("data/kb-snapshot", ROOT)
 
     if args.kb:
-        tarball = Path(args.tarball or ROOT / "data" / "kb-snapshot-full.tar.gz")
+        tarball = resolve_under(args.tarball or "data/kb-snapshot-full.tar.gz", ROOT)
         if tarball.is_file():
-            with tempfile.TemporaryDirectory(prefix="kb-dl-") as td:
-                dest = Path(td) / tarball.name
-                download_s = simulate_download(tarball, dest)
-                snap, load_s = load_kb_timed(dest)
+            dest = resolve_under(f"data/tmp-download/{tarball.name}", ROOT)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            download_s = simulate_download(tarball, dest)
+            snap, load_s = load_kb_timed(dest)
         else:
             snap, load_s = load_kb_timed(snap_dir)
     else:
         enriched = []
         if not args.skip_enrich:
-            clone = ROOT / "data" / "repo" / "ceph"
+            clone = resolve_under("data/repo/ceph", ROOT)
             if clone.is_dir():
                 print(f"Enriching {len(numbers)} PRs via git...")
                 enriched = enrich_prs(raw, str(clone), numbers)
             else:
                 print("No clone; KB will be metadata-only", file=sys.stderr)
         build_snapshot(snap_dir, raw_dir=raw, enriched_records=enriched)
-        pack_snapshot(snap_dir, ROOT / "data" / "kb-snapshot.tar.gz")
+        pack_snapshot(snap_dir, resolve_under("data/kb-snapshot.tar.gz", ROOT))
         snap, load_s = load_kb_timed(snap_dir)
 
     by_n = {r["number"]: r for r in snap["records"]}
@@ -158,8 +159,10 @@ def main():
     warm_only = warm_all[1:] if len(warm_all) > 1 else warm_all
 
     build_stats = {}
-    if args.build_stats and Path(args.build_stats).is_file():
-        build_stats = json.loads(Path(args.build_stats).read_text())
+    if args.build_stats:
+        stats_path = resolve_under(args.build_stats, ROOT)
+        if stats_path.is_file():
+            build_stats = json.loads(stats_path.read_text())
 
     manifest = snap.get("manifest", {})
     summary = {

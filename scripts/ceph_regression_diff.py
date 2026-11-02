@@ -9,7 +9,12 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import sys
+
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from pr_triage.safepath import resolve_under  # noqa: E402
 
 
 def normalize_reason(reason: str) -> str:
@@ -44,13 +49,16 @@ def main():
     ap.add_argument("candidate", type=Path, default=Path("reports/all-latest.csv"), nargs="?")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
+    baseline = resolve_under(args.baseline, ROOT)
+    candidate = resolve_under(args.candidate, ROOT)
+    out_path = resolve_under(args.out, ROOT) if args.out else None
 
-    if not args.candidate.is_file():
-        print(json.dumps({"error": f"missing candidate {args.candidate}"}, indent=2))
+    if not candidate.is_file():
+        print(json.dumps({"error": f"missing candidate {candidate}"}, indent=2))
         return 1
 
-    base_rows = load_csv(args.baseline)
-    cand_rows = load_csv(args.candidate)
+    base_rows = load_csv(baseline)
+    cand_rows = load_csv(candidate)
     base_keys = {finding_key(r): r for r in base_rows}
     cand_keys = {finding_key(r): r for r in cand_rows}
 
@@ -78,8 +86,8 @@ def main():
             drift_hints.append({"key": k, "same_prs_other_cat": [x[0] for x in same_prs[:3]]})
 
     report = {
-        "baseline": str(args.baseline),
-        "candidate": str(args.candidate),
+        "baseline": str(baseline),
+        "candidate": str(candidate),
         "findings": {"baseline": len(base_rows), "candidate": len(cand_rows)},
         "category_diff": cat_diff,
         "keys_only_baseline": len(only_base),
@@ -89,8 +97,8 @@ def main():
         "drift_hint_count": len(drift_hints),
     }
     text = json.dumps(report, indent=2)
-    if args.out:
-        args.out.write_text(text + "\n")
+    if out_path:
+        out_path.write_text(text + "\n")
     print(text)
     return 0
 
