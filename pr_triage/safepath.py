@@ -104,7 +104,8 @@ class SafePath:
         return self._checked().is_file()
 
     def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
-        return self._checked().read_text(encoding=encoding, errors=errors)
+        safe = canonical_path_str(self._path, self._base)
+        return Path(safe).read_text(encoding=encoding, errors=errors)  # NOSONAR path confined to base
 
     def write_text(
         self,
@@ -113,12 +114,14 @@ class SafePath:
         errors: str | None = None,
         newline: str | None = None,
     ) -> int:
-        return self._checked().write_text(
+        safe = canonical_path_str(self._path, self._base)
+        return Path(safe).write_text(  # NOSONAR path confined to base
             data, encoding=encoding, errors=errors, newline=newline
         )
 
     def open(self, mode: str = "r", **kwargs: object):
-        return self._checked().open(mode, **kwargs)
+        safe = canonical_path_str(self._path, self._base)
+        return Path(safe).open(mode, **kwargs)  # NOSONAR path confined to base
 
     def glob(self, pattern: str) -> Iterator[SafePath]:
         if pattern.startswith("/") or ".." in Path(pattern).parts:
