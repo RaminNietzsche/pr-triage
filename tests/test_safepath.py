@@ -1,3 +1,4 @@
+import os
 import tarfile
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from pr_triage.safepath import (
     SafePathError,
     allowed_base,
     assert_realpath_under,
+    canonical_path_str,
     extract_tarball,
     resolve_config_path,
     resolve_under,
@@ -69,6 +71,14 @@ def test_assert_realpath_under_accepts_relative(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     got = assert_realpath_under("data/out.tar.gz")
     assert got == str((tmp_path / "data" / "out.tar.gz").resolve())
+
+
+def test_canonical_rebuilds_from_trusted_base(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    trusted = str(tmp_path.resolve())
+    got = canonical_path_str("data/nested", trusted)
+    assert got == os.path.join(trusted, "data", "nested")
+    assert got.startswith(trusted + os.sep)
 
 
 def test_extract_tarball_accepts_normal_member(tmp_path):

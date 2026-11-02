@@ -15,6 +15,7 @@ from pr_triage.safepath import (
     SafePath,
     SafePathError,
     allowed_base,
+    canonical_path_str,
     resolve_under,
 )
 
@@ -168,14 +169,17 @@ def build_snapshot(
 
 def pack_snapshot(snapshot_dir: Path, archive: Path):
     root = allowed_base()
-    snapshot_dir = resolve_under(snapshot_dir, root)
     trusted = os.path.realpath(str(root))
-    archive_resolved = os.path.realpath(str(archive))
-    if ".." in Path(archive).parts:
-        raise SafePathError(f"path {archive!r} contains parent traversal")
-    if archive_resolved != trusted and not archive_resolved.startswith(trusted + os.sep):
-        raise SafePathError(f"path {archive!r} escapes allowed base {trusted}")
-    Path(archive_resolved).parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(archive_resolved, "w:gz") as tf:
-        tf.add(snapshot_dir, arcname=Path(snapshot_dir).name)
-    return Path(archive_resolved)
+    snapshot_resolved = os.path.realpath(str(snapshot_dir))
+    if ".." in Path(snapshot_dir).parts:
+        raise SafePathError(f"path {snapshot_dir!r} contains parent traversal")
+    if snapshot_resolved != trusted and not snapshot_resolved.startswith(trusted + os.sep):
+        raise SafePathError(f"path {snapshot_dir!r} escapes allowed base {trusted}")
+    snapshot_safe = os.path.realpath(os.path.join(trusted, os.path.relpath(snapshot_resolved, trusted)))
+    if snapshot_safe != trusted and not snapshot_safe.startswith(trusted + os.sep):
+        raise SafePathError(f"path {snapshot_dir!r} escapes allowed base {trusted}")
+    archive_safe = canonical_path_str(archive, root)
+    Path(archive_safe).parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive_safe, "w:gz") as tf:
+        tf.add(snapshot_safe, arcname=os.path.basename(snapshot_safe))
+    return Path(archive_safe)

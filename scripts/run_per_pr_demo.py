@@ -22,7 +22,7 @@ from pipeline.comment import render_comment  # noqa: E402
 from pipeline.filter import filter_findings  # noqa: E402
 from pipeline.query import query_pr  # noqa: E402
 from triage import dupes  # noqa: E402
-from pr_triage.safepath import SafePath, resolve_under  # noqa: E402
+from pr_triage.safepath import SafePath, canonical_path_str, resolve_under  # noqa: E402
 from triage.github_api import list_open_pulls  # noqa: E402
 
 
@@ -77,7 +77,8 @@ def main():
 
     download_s = 0.0
     load_s = 0.0
-    snap_dir = resolve_under(args.kb, ROOT) if args.kb else resolve_under("data/kb-snapshot", ROOT)
+    kb_arg = args.kb if args.kb else "data/kb-snapshot"
+    snap_dir = Path(canonical_path_str(kb_arg, ROOT))
 
     if args.kb:
         tarball = resolve_under(args.tarball or "data/kb-snapshot-full.tar.gz", ROOT)
@@ -98,7 +99,8 @@ def main():
             else:
                 print("No clone; KB will be metadata-only", file=sys.stderr)
         build_snapshot(snap_dir, raw_dir=raw, enriched_records=enriched)
-        pack_snapshot(snap_dir, resolve_under("data/kb-snapshot.tar.gz", ROOT))
+        archive_for_pack = Path(canonical_path_str("data/kb-snapshot.tar.gz", ROOT))
+        pack_snapshot(snap_dir, archive_for_pack)
         snap, load_s = load_kb_timed(snap_dir)
 
     by_n = {r["number"]: r for r in snap["records"]}
