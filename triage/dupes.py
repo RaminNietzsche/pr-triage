@@ -31,7 +31,12 @@ def embed(texts):
         v = _MODEL.encode(texts, batch_size=32, normalize_embeddings=True, show_progress_bar=False)
         return np.asarray(v), "sentence-transformers all-MiniLM-L6-v2 (local, CPU)"
     except Exception as e:  # offline / install failure
-        print(f"  embeddings unavailable ({e}); falling back to TF-IDF")
+        import warnings
+
+        warnings.warn(
+            f"sentence-transformers unavailable ({e}); using TF-IDF for duplicate similarity",
+            stacklevel=2,
+        )
         from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.preprocessing import normalize
         v = TfidfVectorizer(max_features=50000, sublinear_tf=True, stop_words="english").fit_transform(texts)
