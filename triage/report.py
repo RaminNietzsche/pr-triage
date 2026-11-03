@@ -296,7 +296,7 @@ def write_md(path, date, recs, findings, clusters_, method, meta):  # noqa: ARG0
     safe = SafePath(path, allowed_base())
     by = {r["number"]: r for r in recs}
     cnt = Counter((f["category"], f["confidence"]) for f in findings)
-    cats = sorted({c for c, _ in cnt.items()})
+    cats = sorted({cat for cat, _conf in cnt})
     comp = meta.get("component", "rgw")
     allmode = comp == "all"
     if allmode:
@@ -315,9 +315,13 @@ def write_md(path, date, recs, findings, clusters_, method, meta):  # noqa: ARG0
          f"({n_actionable_high} high-confidence actionable findings).",
          f"- Data snapshot: PR list via GitHub REST, PR heads via `refs/pull/N/head`; base tips at {meta['base_tips']}.",
          f"- Release-branch backport PRs among them: {meta['n_backports']} ({meta['n_backports_no_trailer']} without any 'cherry picked from' trailer).",
-         f"- Similarity method: {method}.", "", "## Counts by category", "", "| category | high | medium | low |", "|---|---|---|---|"]
+         f"- Similarity method: {method}.", "", "## Counts by category", "",
+         "| category | high | medium | low | total |", "|---|---|---|---|---|"]
     for c in cats:
-        L.append(f"| {c} | {cnt[(c, 'high')]} | {cnt[(c, 'medium')]} | {cnt[(c, 'low')]} |")
+        high_n = cnt[(c, "high")]
+        med_n = cnt[(c, "medium")]
+        low_n = cnt[(c, "low")]
+        L.append(f"| {c} | {high_n} | {med_n} | {low_n} | {high_n + med_n + low_n} |")
     if allmode:
         rows = component_table(recs, findings)
         L += ["", "## By component", "",
