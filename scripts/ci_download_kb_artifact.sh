@@ -16,7 +16,7 @@ fi
 RUN_ID="$(gh run list --workflow="$WORKFLOW_FILE" --status success --limit 1 --json databaseId \
   -q '.[0].databaseId' 2>/dev/null || true)"
 
-if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
   echo "No successful run found for workflow $WORKFLOW_FILE" >&2
   exit 2
 fi

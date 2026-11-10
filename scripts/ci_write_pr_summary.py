@@ -3,7 +3,8 @@
 
 import json
 import sys
-from pathlib import Path
+
+from pr_triage.safepath import SafePath, allowed_base
 
 SIMILAR_CATEGORIES = frozenset(
     {
@@ -76,8 +77,7 @@ def main(argv=None):
         print("usage: ci_write_pr_summary.py PR_NUMBER json_path", file=sys.stderr)
         return 2
     pr_number = int(argv[0])
-    path = Path(argv[1])
-    data = json.loads(path.read_text())
+    data = json.loads(SafePath(argv[1], allowed_base()).read_text())
     sys.stdout.write(render_summary(pr_number, data))
     return 0
 
