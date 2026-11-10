@@ -1,0 +1,40 @@
+# SAMPLE: .github/workflows/pr-triage-manual.yml
+# Manual query (workflow_dispatch only) — avoids mixed pull_request/workflow_dispatch expressions.
+
+name: pr-triage manual query
+
+on:
+  workflow_dispatch:
+    inputs:
+      query_pr_number:
+        description: ceph/ceph PR to query in the KB
+        required: true
+        type: number
+      comment_pr_number:
+        description: PR in this repo to receive the comment
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  triage:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    uses: RaminNietzsche/pr-triage/.github/workflows/reusable-query-pr.yml@main
+    with:
+      pr_number: ${{ inputs.query_pr_number }}
+      comment_pr_number: ${{ inputs.comment_pr_number }}
+      config: configs/ceph.yml
+      tool_ref: main
+      kb_workflow_file: pr-triage-kb.yml
+      all_findings: true
+      refresh_target: true
+      post_comment: true
+      github_repo_links: ceph/ceph
+    secrets: inherit
