@@ -29,6 +29,10 @@ concurrency:
 
 jobs:
   triage:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     uses: RaminNietzsche/pr-triage/.github/workflows/reusable-query-pr.yml@main
     with:
       pr_number: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.pull_request.number }}
