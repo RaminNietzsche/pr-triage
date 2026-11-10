@@ -1,0 +1,125 @@
+# SAMPLE ONLY (inline version). Prefer thin wrappers:
+#   docs/examples/ceph-fork-pr-triage-on-pr.yml.sample  -> reusable-query-pr
+#   docs/examples/ceph-fork-pr-triage-kb.yml.sample     -> reusable-build-kb
+#
+# On each pull_request, download the latest successful KB artifact from workflow
+# pr-triage-kb.yml and write a Job Summary (read-only).
+
+name: pr-triage per PR (sample)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: pr-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pr-triage tool
+        uses: actions/checkout@v4
+        with:
+          repository: RaminNietzsche/pr-triage
+          ref: main   # pin to tag/SHA
+          path: pr-triage
+          persist-credentials: false
+
+      - name: Download latest KB snapshot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x pr-triage/scripts/ci_download_kb_artifact.sh
+          pr-triage/scripts/ci_download_kb_artifact.sh pr-triage-kb.yml pr-triage-kb-snapshot kb-artifact
+
+      - name: Restore ceph clone cache
+        uses: actions/cache@v4
+        with:
+          path: pr-triage/data/repo/ceph
+          key: pr-triage-clone-${{ github.repository }}-ceph
+          restore-keys: |
+            pr-triage-clone-${{ github.repository }}-ceph
+
+      - name: Extract KB
+        working-directory: pr-triage
+        run: |
+          if [ -f ../kb-artifact/kb-snapshot.tar.gz ]; then
+            tar -xzf ../kb-artifact/kb-snapshot.tar.gz -C data
+          elif [ -d ../kb-artifact/kb-snapshot ]; then
+            mv ../kb-artifact/kb-snapshot data/kb-snapshot
+          else
+            echo "No KB artifact; skip query." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+      - name: Fetch PR head ref (for --refresh-target)
+        working-directory: pr-triage
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -d data/repo/ceph ]; then
+            git -C data/repo/ceph fetch -q origin "pull/${PR}/head:refs/pr/${PR}" || true
+          fi
+
+      - name: Query PR
+        id: query
+        working-directory: pr-triage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+          set +e
+          python3 -m pr_triage per-pr \
+            --config configs/ceph.yml \
+            --pr "$PR" \
+            --kb data/kb-snapshot \
+            --clone data/repo/ceph \
+            --refresh-target \
+            --json \
+            --all-findings \
+            > "/tmp/triage-pr-${PR}.json"
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ]; then
+            echo "per-pr failed (PR may not be in snapshot yet)." >> "$GITHUB_STEP_SUMMARY"
+            cat "/tmp/triage-pr-${PR}.json" 2>/dev/null || true
+            exit 0
+          fi
+
+      - name: Write Job Summary
+        if: steps.query.outputs.exit_code == '0'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 pr-triage/scripts/ci_write_pr_summary.py "$PR" "/tmp/triage-pr-${PR}.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JSON (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-triage-pr-${{ github.event.pull_request.number }}
+          path: /tmp/triage-pr-${{ github.event.pull_request.number }}.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # Optional: post PR comment (NOT enabled in sample). Requires pull-requests: write.
+      #
+      # - name: Render comment body
+      #   working-directory: pr-triage
+      #   run: |
+      #     python3 -m pr_triage per-pr --config configs/ceph.yml --pr "$PR" \
+      #       --kb data/kb-snapshot --render > /tmp/comment.md
+      #
+      # - name: Post comment
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     gh pr comment "$PR" --body-file /tmp/comment.md

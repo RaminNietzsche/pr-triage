@@ -1,0 +1,33 @@
+# SAMPLE: smoke-test KB artifact after the daily build completes.
+# Copy as .github/workflows/pr-triage-kb-smoke.yml (optional).
+
+name: pr-triage KB smoke
+
+on:
+  workflow_run:
+    workflows: ["pr-triage KB"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download KB from triggering run
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-triage-kb-snapshot
+          path: kb-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect manifest
+        run: |
+          tar -xzf kb-artifact/kb-snapshot.tar.gz
+          python3 -c "import json; m=json.load(open('kb-snapshot/manifest.json')); print('KB records', m.get('stats',{}).get('records'), 'built', m.get('built_at'))"
+          echo "KB smoke OK" >> "$GITHUB_STEP_SUMMARY"

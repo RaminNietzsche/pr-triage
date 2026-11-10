@@ -1,0 +1,122 @@
+# Callable workflow: query one PR against the latest KB artifact in the caller repo.
+# Caller must grant actions: read and run the KB workflow at least once.
+
+name: Reusable query single PR
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number to query
+        required: true
+        type: number
+      config:
+        type: string
+        default: configs/ceph.yml
+      tool_repository:
+        type: string
+        default: RaminNietzsche/pr-triage
+      tool_ref:
+        type: string
+        default: main
+      kb_workflow_file:
+        description: Workflow filename in caller repo that uploads the KB (e.g. pr-triage-kb.yml)
+        type: string
+        default: pr-triage-kb.yml
+      kb_artifact_name:
+        type: string
+        default: pr-triage-kb-snapshot
+      all_findings:
+        type: boolean
+        default: true
+      refresh_target:
+        type: boolean
+        default: true
+      upload_json_artifact:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pr-triage
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.tool_repository }}
+          ref: ${{ inputs.tool_ref }}
+          path: pr-triage
+          persist-credentials: false
+
+      - name: Download latest KB artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x pr-triage/scripts/ci_download_kb_artifact.sh
+          pr-triage/scripts/ci_download_kb_artifact.sh \
+            "${{ inputs.kb_workflow_file }}" \
+            "${{ inputs.kb_artifact_name }}" \
+            kb-artifact
+
+      - name: Restore clone cache
+        uses: actions/cache@v4
+        with:
+          path: pr-triage/data/repo
+          key: pr-triage-clone-${{ github.repository }}-${{ inputs.config }}
+          restore-keys: |
+            pr-triage-clone-${{ github.repository }}-
+
+      - name: Extract KB and fetch PR ref
+        working-directory: pr-triage
+        env:
+          PR: ${{ inputs.pr_number }}
+        run: |
+          tar -xzf ../kb-artifact/kb-snapshot.tar.gz -C data 2>/dev/null || \
+            { echo "KB tarball missing"; exit 2; }
+          CLONE=$(python3 -c "import yaml;from pathlib import Path;c=yaml.safe_load(Path('${{ inputs.config }}').read_text());print((c.get('github')or{}).get('clone_dir','data/repo/ceph'))")
+          if [ -d "$CLONE" ]; then
+            git -C "$CLONE" fetch -q origin "pull/${PR}/head:refs/pr/${PR}" || true
+          fi
+
+      - name: Query PR
+        id: query
+        working-directory: pr-triage
+        env:
+          PR: ${{ inputs.pr_number }}
+        run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+          ARGS=(per-pr --config "${{ inputs.config }}" --pr "$PR" --kb data/kb-snapshot --json)
+          if [ "${{ inputs.all_findings }}" = "true" ]; then ARGS+=(--all-findings); fi
+          if [ "${{ inputs.refresh_target }}" = "true" ]; then
+            CLONE=$(python3 -c "import yaml;from pathlib import Path;c=yaml.safe_load(Path('${{ inputs.config }}').read_text());print((c.get('github')or{}).get('clone_dir','data/repo/ceph'))")
+            if [ -d "$CLONE" ]; then ARGS+=(--clone "$CLONE" --refresh-target); fi
+          fi
+          set +e
+          python3 -m pr_triage "${ARGS[@]}" > "/tmp/triage-pr-${PR}.json"
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ]; then
+            echo "per-pr failed (PR may not be in snapshot yet)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+      - name: Write Job Summary
+        if: steps.query.outputs.exit_code == '0'
+        run: |
+          python3 pr-triage/scripts/ci_write_pr_summary.py \
+            "${{ inputs.pr_number }}" \
+            "/tmp/triage-pr-${{ inputs.pr_number }}.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JSON
+        if: inputs.upload_json_artifact && steps.query.outputs.exit_code == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-triage-pr-${{ inputs.pr_number }}
+          path: /tmp/triage-pr-${{ inputs.pr_number }}.json
+          retention-days: 7
