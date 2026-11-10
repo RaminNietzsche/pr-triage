@@ -80,7 +80,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: pr-triage
-        run: python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+        run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
 
       - name: Download latest KB artifact
         env:

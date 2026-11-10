@@ -67,7 +67,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x scripts/setup_clone.sh scripts/ci_download_kb_artifact.sh 2>/dev/null || true
-          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+          python3 -m pip install --require-hashes '--only-binary' ':all:' -r requirements-lock.txt
           python3 -m pr_triage batch --config "${{ inputs.config }}" --list-only --refresh
           CONFIG="${{ inputs.config }}" ./scripts/setup_clone.sh
           python3 -m pr_triage build-kb --config "${{ inputs.config }}" --out data/kb-snapshot
