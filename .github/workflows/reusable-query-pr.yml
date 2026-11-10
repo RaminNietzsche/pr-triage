@@ -78,6 +78,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install dependencies
+        working-directory: pr-triage
+        run: python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+
       - name: Download latest KB artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -119,7 +123,6 @@ jobs:
         env:
           PR: ${{ inputs.pr_number }}
         run: |
-          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
           ARGS=(per-pr --config "${{ inputs.config }}" --pr "$PR" --kb data/kb-snapshot --json)
           if [ "${{ inputs.all_findings }}" = "true" ]; then ARGS+=(--all-findings); fi
           if [ "${{ inputs.refresh_target }}" = "true" ]; then
