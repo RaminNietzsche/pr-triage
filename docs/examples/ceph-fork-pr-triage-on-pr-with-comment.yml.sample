@@ -24,7 +24,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: pr-triage-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: pr-triage-${{ github.event.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
@@ -35,8 +35,8 @@ jobs:
       pull-requests: write
     uses: RaminNietzsche/pr-triage/.github/workflows/reusable-query-pr.yml@main
     with:
-      pr_number: ${{ github.event.pull_request.number || inputs.pr_number }}
-      comment_pr_number: ${{ github.event.pull_request.number || (inputs.comment_pr_number != 0 && inputs.comment_pr_number || inputs.pr_number) }}
+      pr_number: ${{ github.event.number || inputs.pr_number }}
+      comment_pr_number: ${{ github.event.number || inputs.comment_pr_number || inputs.pr_number }}
       config: configs/ceph.yml
       tool_ref: main
       kb_workflow_file: pr-triage-kb.yml
