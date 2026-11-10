@@ -106,6 +106,7 @@ jobs:
             echo "KB tarball missing under kb-artifact (got: $(find ../kb-artifact -type f 2>/dev/null | head -5))"
             exit 2
           fi
+          mkdir -p data
           tar -xzf "$TAR" -C data
           CLONE=$(python3 -c "import yaml;from pathlib import Path;c=yaml.safe_load(Path('${{ inputs.config }}').read_text());print((c.get('github')or{}).get('clone_dir','data/repo/ceph'))")
           if [ -d "$CLONE" ]; then
