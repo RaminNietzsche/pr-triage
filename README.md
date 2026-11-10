@@ -71,9 +71,17 @@ python -c "from pathlib import Path; from kb.build import build_snapshot; from k
 python per_pr.py --pr 71234 --kb data/kb-snapshot --render
 ```
 
-Architecture and hosting options: see the project doc
-`docs/per-pr-pipeline-architecture.md` in Context. Sample workflow:
-`docs/examples/per-pr-triage.workflow.yml.sample`.
+Architecture and hosting options: `docs/per-pr-pipeline-architecture.md`.
+
+**GitHub Actions (fork of target repo, not enabled upstream):**
+
+1. Daily KB: copy `docs/examples/ceph-fork-pr-triage-kb.yml.sample` →
+   `.github/workflows/pr-triage-kb.yml` (calls reusable `reusable-build-kb.yml`).
+2. Per PR: copy `docs/examples/ceph-fork-pr-triage-on-pr.yml.sample` →
+   `.github/workflows/pr-triage-on-pr.yml` (calls reusable `reusable-query-pr.yml`;
+   needs `actions: read` to download the KB artifact).
+
+Alternatively use the inline samples under `docs/examples/*.workflow.yml.sample`.
 
 Re-runs are incremental: the clone is fetched rather than re-cloned, per-PR git
 analysis is reused while a PR's `updated_at` is unchanged, and tracker lookups are

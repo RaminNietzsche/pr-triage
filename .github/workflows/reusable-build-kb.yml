@@ -1,0 +1,92 @@
+# Callable workflow: build KB snapshot and upload artifact (read-only git/github).
+# Use from a target repo (e.g. ceph fork) via workflow_call.
+
+name: Reusable build KB snapshot
+
+on:
+  workflow_call:
+    inputs:
+      config:
+        description: Config file inside the pr-triage checkout (e.g. configs/ceph.yml)
+        type: string
+        default: configs/ceph.yml
+      tool_repository:
+        type: string
+        default: RaminNietzsche/pr-triage
+      tool_ref:
+        type: string
+        default: main
+      artifact_name:
+        type: string
+        default: pr-triage-kb-snapshot
+      run_batch_report:
+        description: When true, also run full batch report (slow; uses --no-tracker)
+        type: boolean
+        default: false
+    outputs:
+      artifact_name:
+        description: Artifact name uploaded for per-PR jobs
+        value: ${{ inputs.artifact_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  build_kb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout pr-triage
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.tool_repository }}
+          ref: ${{ inputs.tool_ref }}
+          path: pr-triage
+          persist-credentials: false
+
+      - name: Restore caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            pr-triage/data/repo
+            pr-triage/data/prs.json
+            pr-triage/data/raw
+            pr-triage/data/tracker
+            ~/.cache/huggingface
+          key: pr-triage-kb-${{ github.repository }}-${{ inputs.config }}-${{ runner.os }}
+          restore-keys: |
+            pr-triage-kb-${{ github.repository }}-
+
+      - name: Build KB snapshot
+        working-directory: pr-triage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/setup_clone.sh scripts/ci_download_kb_artifact.sh 2>/dev/null || true
+          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+          python3 -m pr_triage batch --config "${{ inputs.config }}" --list-only --refresh
+          CONFIG="${{ inputs.config }}" ./scripts/setup_clone.sh
+          python3 -m pr_triage build-kb --config "${{ inputs.config }}" --out data/kb-snapshot
+          tar -czf kb-snapshot.tar.gz -C data kb-snapshot
+
+      - name: Upload KB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: pr-triage/kb-snapshot.tar.gz
+          retention-days: 14
+
+      - name: Optional batch CSV/MD
+        if: inputs.run_batch_report
+        working-directory: pr-triage
+        run: python3 -m pr_triage batch --config "${{ inputs.config }}" --component all --no-tracker
+        continue-on-error: true
+
+      - name: Upload batch report
+        if: inputs.run_batch_report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-triage-batch-report
+          path: pr-triage/reports/
+          retention-days: 30
+          if-no-files-found: ignore

@@ -1,0 +1,82 @@
+# SAMPLE ONLY. Copy into ceph/ceph (or a fork) as .github/workflows/pr-triage-kb.yml
+# Builds a KB snapshot of all open PRs and uploads it for per-PR jobs.
+#
+# Not enabled anywhere by default.
+
+name: pr-triage KB build (sample)
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # daily 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-triage-kb
+  cancel-in-progress: false
+
+jobs:
+  build_kb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout target repository (for context only; clone done by tool)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout pr-triage tool
+        uses: actions/checkout@v4
+        with:
+          repository: RaminNietzsche/pr-triage
+          ref: main   # pin to a tag or SHA in production
+          path: pr-triage
+          persist-credentials: false
+
+      - name: Restore caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            pr-triage/data/repo
+            pr-triage/data/prs.json
+            pr-triage/data/raw
+            pr-triage/data/tracker
+            ~/.cache/huggingface
+          key: pr-triage-kb-${{ github.repository }}-${{ runner.os }}
+          restore-keys: |
+            pr-triage-kb-${{ github.repository }}-
+
+      - name: Build KB snapshot
+        working-directory: pr-triage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r requirements-lock.txt
+          python3 -m pr_triage batch --config configs/ceph.yml --list-only --refresh
+          CONFIG=configs/ceph.yml ./scripts/setup_clone.sh
+          python3 -m pr_triage build-kb --config configs/ceph.yml --out data/kb-snapshot
+          tar -czf kb-snapshot.tar.gz -C data kb-snapshot
+
+      - name: Upload KB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-triage-kb-snapshot
+          path: pr-triage/kb-snapshot.tar.gz
+          retention-days: 14
+
+      - name: Optional weekly CSV report
+        if: github.event_name == 'schedule'
+        working-directory: pr-triage
+        run: |
+          python3 -m pr_triage batch --config configs/ceph.yml --component all --no-tracker
+        continue-on-error: true
+
+      - name: Upload batch report artifact
+        if: github.event_name == 'schedule'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-triage-weekly-report
+          path: pr-triage/reports/
+          retention-days: 30
