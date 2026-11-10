@@ -35,6 +35,26 @@ on:
       upload_json_artifact:
         type: boolean
         default: true
+      post_comment:
+        description: Upsert a PR comment (requires pull-requests write on caller)
+        type: boolean
+        default: false
+      comment_repo:
+        description: owner/name for comment (default caller repository)
+        type: string
+        default: ""
+      comment_pr_number:
+        description: PR to comment on (default same as pr_number)
+        type: number
+        default: 0
+      post_on_query_failure:
+        description: Post short "not in snapshot" comment when per-pr exits non-zero
+        type: boolean
+        default: false
+      github_repo_links:
+        description: Repo slug for pull links in the comment body
+        type: string
+        default: ceph/ceph
 
 permissions:
   contents: read
@@ -120,3 +140,40 @@ jobs:
           name: pr-triage-pr-${{ inputs.pr_number }}
           path: /tmp/triage-pr-${{ inputs.pr_number }}.json
           retention-days: 7
+
+      - name: Render PR comment
+        id: comment_body
+        if: inputs.post_comment
+        env:
+          PR: ${{ inputs.pr_number }}
+          COMMENT_PR: ${{ inputs.comment_pr_number == 0 && inputs.pr_number || inputs.comment_pr_number }}
+          PYTHONPATH: pr-triage
+        run: |
+          set -e
+          REPO="${{ inputs.comment_repo }}"
+          if [ -z "$REPO" ]; then REPO="${{ github.repository }}"; fi
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "comment_pr=$COMMENT_PR" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.query.outputs.exit_code }}" = "0" ]; then
+            python3 pr-triage/scripts/render_pr_similar_comment.py \
+              "$PR" "/tmp/triage-pr-${PR}.json" \
+              --repo "${{ inputs.github_repo_links }}" > /tmp/pr-triage-comment.md
+          elif [ "${{ inputs.post_on_query_failure }}" = "true" ]; then
+            python3 pr-triage/scripts/render_not_in_snapshot_comment.py \
+              --comment-pr "$COMMENT_PR" --query-pr "$PR" > /tmp/pr-triage-comment.md
+          else
+            echo "skip_comment=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      - name: Post or update PR comment
+        if: inputs.post_comment && steps.comment_body.outputs.skip_comment != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: pr-triage
+        run: |
+          python3 pr-triage/scripts/post_pr_comment.py \
+            --repo "${{ steps.comment_body.outputs.repo }}" \
+            --pr "${{ steps.comment_body.outputs.comment_pr }}" \
+            --body-file /tmp/pr-triage-comment.md

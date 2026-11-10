@@ -4,29 +4,8 @@
 import json
 import sys
 
+from pipeline.pr_comment_body import SIMILAR_CATEGORIES, STRUCTURAL_CATEGORIES
 from pr_triage.safepath import SafePath, allowed_base
-
-SIMILAR_CATEGORIES = frozenset(
-    {
-        "duplicate",
-        "duplicate-backport",
-        "competing-fix",
-        "possible-overlap",
-        "stacked",
-        "shares-commits",
-        "related-series",
-        "stated-supersede",
-    }
-)
-STRUCTURAL_CATEGORIES = frozenset(
-    {
-        "merge-conflict",
-        "files-gone",
-        "files-moved-on-base",
-        "already-in-base",
-        "ticket-closed",
-    }
-)
 
 
 def render_summary(pr_number: int, data: dict) -> str:
