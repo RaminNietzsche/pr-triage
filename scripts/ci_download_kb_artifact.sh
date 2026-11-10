@@ -13,7 +13,12 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-RUN_ID="$(gh run list --workflow="$WORKFLOW_FILE" --status success --limit 1 --json databaseId \
+REPO="${GITHUB_REPOSITORY:-}"
+GH_REPO=()
+if [[ -n "$REPO" ]]; then
+  GH_REPO=(-R "$REPO")
+fi
+RUN_ID="$(gh run list "${GH_REPO[@]}" --workflow="$WORKFLOW_FILE" --status success --limit 1 --json databaseId \
   -q '.[0].databaseId' 2>/dev/null || true)"
 
 if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
@@ -23,5 +28,5 @@ fi
 
 mkdir -p "$OUT_DIR"
 rm -rf "${OUT_DIR:?}"/*
-gh run download "$RUN_ID" -n "$ARTIFACT_NAME" -D "$OUT_DIR"
+gh run download "${GH_REPO[@]}" "$RUN_ID" -n "$ARTIFACT_NAME" -D "$OUT_DIR"
 echo "Downloaded $ARTIFACT_NAME from run $RUN_ID -> $OUT_DIR"
